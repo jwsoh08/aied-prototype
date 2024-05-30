@@ -1,1 +1,4 @@
 .venv
+# Python related
+__pycache__
+optimization_tools
