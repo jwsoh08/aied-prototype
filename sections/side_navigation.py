@@ -1,14 +1,16 @@
 import streamlit as st
-from database.sqlite3 import initialise_sqlite_db, get_app_config_condition
-from database.mongodb import initialise_mongodb
-from utils.start_app import initialise_admin_account, initialise_log_collection
+from streamlit_antd_components import menu, MenuItem
 
 
 def load_app_side_navigation():
     with st.sidebar:
+        if st.session_state.login == False:
+            st.image("assets/aied_logo.png")
+            st.session_state.option = menu([MenuItem("Users login", icon="people")])
 
-        st.image("assets/aied_logo.png")
-        #     st.session_state.option = menu([MenuItem("Users login", icon="people")])
+        else:
+            st.write("You should see some navigation options here based on what is authorised for the logged in user.")
+            
 
     # 			#can do a test if user is school is something show a different logo and set a different API key
     # 			if st.session_state.user['profile_id'] == SA: #super admin login feature

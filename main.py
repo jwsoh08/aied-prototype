@@ -1,7 +1,8 @@
 import streamlit as st
 
-from utils.start_app import load_app_session_states, initialise_app
+from utils.start_app import initialise_app
 from sections.side_navigation import load_app_side_navigation
+from sections.main_content import load_app_main_content
 
 
 def main():
@@ -11,9 +12,10 @@ def main():
 
     initialise_app()
     load_app_side_navigation()
+    load_app_main_content()
 
-    st.write("fetching data from mongo db.")
-    st.write(st.session_state.u_collection.find_one())
+    # st.write("fetching data from mongo db.")
+    # st.write(st.session_state.u_collection.find_one())
 
     st.write("current session state.")
     st.write(st.session_state)
