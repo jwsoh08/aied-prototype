@@ -67,17 +67,18 @@ def initialise_admin_account():
     if is_app_config_condition_true("MOE Schools"):
         return
 
+    secrets_retriever = SecretsRetriever()
     super_admin_exists = st.session_state.u_collection.find_one(
-        {"username": st.secrets["super_admin_username"]},
+        {"username": secrets_retriever.get_secret("super_admin_username")},
     )
+
     if not super_admin_exists:
-        secrets_retriever = SecretsRetriever()
         DEFAULT_ADMIN_PASSWORD = secrets_retriever.get_secret("mongo_uri")
         hashed_password = hashlib.sha256(DEFAULT_ADMIN_PASSWORD).hexdigest()
 
         st.session_state.u_collection.insert_one(
             {
-                "username": st.secrets["super_admin_username"],
+                "username": secrets_retriever.get_secret("super_admin_username"),
                 "user_id": 0,
                 "password": hashed_password,
                 "profile": "Super Administrator",
