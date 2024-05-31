@@ -2,3 +2,10 @@
 # Python related
 __pycache__
 optimization_tools
+
+# Databases
+sqlite3.db
+
+# Secrets And Env Vars
+secrets.toml
+
