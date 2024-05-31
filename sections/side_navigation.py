@@ -1,26 +1,14 @@
 import streamlit as st
-from database.sqlite3 import initialise_sqlite_db
+from database.sqlite3 import initialise_sqlite_db, get_app_config_condition
 from database.mongodb import initialise_mongodb
+from utils.start_app import initialise_admin_account, initialise_log_collection
 
 
 def load_app_side_navigation():
     with st.sidebar:
-        if st.session_state.login == False:
-            initialise_sqlite_db()
-            initialise_mongodb()
-            #     initialise_admin_account()
-            #     check_if_empty()
 
-            #     value = get_condition_value(PC)
-            #     if value == None:
-            #         # check if settings have been reset and retrieve the latest settings
-            #         pass
-            #     # if check_condition_value(ACP, "app_settings") == False:
-            st.image("assets/aied_logo.png")
-            #     st.session_state.option = menu([MenuItem("Users login", icon="people")])
-
-        else:
-            st.write("login")
+        st.image("assets/aied_logo.png")
+        #     st.session_state.option = menu([MenuItem("Users login", icon="people")])
 
     # 			#can do a test if user is school is something show a different logo and set a different API key
     # 			if st.session_state.user['profile_id'] == SA: #super admin login feature

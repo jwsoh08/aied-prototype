@@ -1,18 +1,22 @@
 import streamlit as st
 
-from utils.start_app import load_app_session_states
+from utils.start_app import load_app_session_states, initialise_app
 from sections.side_navigation import load_app_side_navigation
 
 
 def main():
+    print("running main()")
     st.title("AIED Prototype")
     st.write("--------------")
 
-    load_app_session_states()
+    initialise_app()
     load_app_side_navigation()
 
     st.write("fetching data from mongo db.")
     st.write(st.session_state.u_collection.find_one())
+
+    st.write("current session state.")
+    st.write(st.session_state)
 
 
 # 	#Personal Dashboard
