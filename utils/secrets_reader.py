@@ -6,8 +6,16 @@
 
 import streamlit as st
 import json
+import os
 import boto3
 from botocore.exceptions import ClientError
+
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+ENVIRONMENT = os.getenv("ENVIRONMENT")
 
 
 class SecretsManager:
@@ -36,11 +44,8 @@ class SecretsManager:
 
 class SecretsRetriever:
     def get_secret(self, name):
-        try:
+        # currently configured for development and production only
+        if ENVIRONMENT == "DEVELOPMENT":
             return st.secrets[name]
-        except FileNotFoundError:
-            # Assumes that When secrets.toml file is not found,
-            # that means we are on AWS.
+        else:
             return SecretsManager.get_secret(name)
-        except:
-            st.error(f"{name} secret cannot be accessed.")

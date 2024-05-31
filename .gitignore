@@ -8,4 +8,5 @@ sqlite3.db
 
 # Secrets And Env Vars
 secrets.toml
+.env
 
