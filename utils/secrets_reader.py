@@ -15,8 +15,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ENVIRONMENT = os.getenv("ENVIRONMENT")
-
 
 class SecretsManager:
     @staticmethod
@@ -45,6 +43,8 @@ class SecretsManager:
 class SecretsRetriever:
     def get_secret(self, name):
         # currently configured for development and production only
+        ENVIRONMENT = os.getenv("ENVIRONMENT")
+
         if ENVIRONMENT == "DEVELOPMENT":
             return st.secrets[name]
         else:
