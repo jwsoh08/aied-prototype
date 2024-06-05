@@ -14,12 +14,6 @@ def main():
     load_app_side_navigation()
     load_app_main_content()
 
-    # st.write("fetching data from mongo db.")
-    # st.write(st.session_state.u_collection.find_one())
-
-    st.write("current session state.")
-    st.write(st.session_state)
-
 
 # 	#Personal Dashboard
 # 	elif st.session_state.option == 'Personal Dashboard':
