@@ -16,7 +16,8 @@ def main():
         load_app_side_navigation()
         load_app_main_content()
 
-        if os.environ["ENVIRONMENT"] == "DEVELOPMENT":
+        # Assuming we only operate in dev and prod
+        if os.getenv("ENVIRONMENT", "PRODUCTION") == "DEVELOPMENT":
             st.warning("In development mode")
             st.write(st.session_state)
 
