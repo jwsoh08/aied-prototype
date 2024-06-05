@@ -15,8 +15,6 @@ def main():
         load_app_side_navigation()
         load_app_main_content()
 
-        # st.write(st.session_state)
-
     except Exception as e:
         st.exception(e)
 

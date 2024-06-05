@@ -6,7 +6,7 @@ import streamlit as st
 from pymongo import MongoClient
 
 from database.sqlite3 import initialise_sqlite_db
-from database.mongodb import fetch_all_collections, fetch_document
+from database.mongodb import fetch_all_collections, fetch_school_setting
 from utils.secrets_reader import SecretsRetriever
 from database.sqlite3 import (
     is_app_config_condition_true,
@@ -49,7 +49,9 @@ def load_app_configuration(config_type, settings):
         return
 
     excluded_fields = ["_id", "sch_name"]
-    doc = fetch_document(st.session_state.user["school_id"], config_type, settings)
+    doc = fetch_school_setting(
+        st.session_state.user["school_id"], config_type, settings
+    )
 
     if not doc:
         st.error(f"No {config_type} settings found")
@@ -69,8 +71,8 @@ def load_initial_app_session_states():
         if "app_config" not in st.session_state:
             st.session_state.app_config = {}
 
-        if "school_sa_selected" not in st.session_state:
-            st.session_state.school_sa_selected = ""
+        if "sa_selected_school" not in st.session_state:
+            st.session_state.sa_selected_school = ""
 
         if "func_options" not in st.session_state:
             st.session_state.func_options = {}

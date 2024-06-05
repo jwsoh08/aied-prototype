@@ -20,22 +20,20 @@ def fetch_all_collections():
     st.session_state.app_settings_collection = db["app_settings"]
 
 
-def fetch_document(sch_name, field_name=None, dict_input=None):
-    sch_document = st.session_state.app_settings_collection.find_one(
-        {"sch_name": sch_name}
-    )
-    # If the sch_document doesn't exist and both field_name and dict_input are provided,
-    # create a new sch_document with these details
+def fetch_school_setting(sch_name, field_name=None, dict_input=None):
+    document = st.session_state.app_settings_collection.find_one({"sch_name": sch_name})
+    # If the document doesn't exist and both field_name and dict_input are provided,
+    # create a new document with these details
 
-    if not sch_document and field_name and dict_input is not None:
+    if not document and field_name and dict_input is not None:
         new_document = {"sch_name": sch_name, field_name: dict_input}
         st.session_state.app_settings_collection.insert_one(new_document)
         return dict_input
 
-    # If the sch_document exists but doesn't contain the field_name, handle the missing key
-    if sch_document and field_name and sch_document.get(field_name) is None:
+    # If the document exists but doesn't contain the field_name, handle the missing key
+    if document and field_name and document.get(field_name) is None:
         if dict_input is not None:
-            # If dict_input is provided, update the sch_document with this new field and value
+            # If dict_input is provided, update the document with this new field and value
             st.session_state.app_settings_collection.update_one(
                 {"sch_name": sch_name}, {"$set": {field_name: dict_input}}
             )
@@ -44,5 +42,15 @@ def fetch_document(sch_name, field_name=None, dict_input=None):
             # If dict_input is not provided, just return None or a default value
             return None
 
-    # If the sch_document and field_name exist, return its value
-    return sch_document.get(field_name)
+    # If the document and field_name exist, return its value
+    return document.get(field_name)
+
+
+def fetch_all_schools_names():
+    documents = st.session_state.school_collection.find({}, {"sch_name": 1, "_id": 0})
+    sch_names = [doc["sch_name"] for doc in documents]
+
+    if not sch_names:
+        return []
+
+    return sch_names

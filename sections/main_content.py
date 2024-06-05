@@ -1,5 +1,6 @@
 import streamlit as st
-from components.login_form import login_form
+from components.forms import login_form
+from functions.personal_dashboard import personal_dashboard
 from utils.app_utils import erase_all_session_state
 
 
@@ -13,7 +14,7 @@ def load_app_main_content():
                 login_form()
 
     elif st.session_state.option == "Personal Dashboard":
-        st.write("personal dashboard")
+        personal_dashboard()
 
     elif st.session_state.option == "AI Chatbot":
         st.write("AI Chatbot")
@@ -43,5 +44,8 @@ def load_app_main_content():
         st.write("Application Info")
 
     elif st.session_state.option == "Logout":
+        print('logging out')
         erase_all_session_state()
         st.rerun()
+
+    st.write(st.session_state)
