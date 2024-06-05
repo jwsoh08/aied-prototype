@@ -105,7 +105,7 @@ def initialise_admin_account():
         return
 
     secrets_retriever = SecretsRetriever()
-    super_admin_exists = st.session_state.user_collection.find_one(
+    super_admin_exists = st.session_state.users_collection.find_one(
         {"username": secrets_retriever.get_secret("super_admin_username")}
     )
 
@@ -113,7 +113,7 @@ def initialise_admin_account():
         DEFAULT_ADMIN_PASSWORD = secrets_retriever.get_secret("mongo_uri")
         hashed_password = hashlib.sha256(DEFAULT_ADMIN_PASSWORD).hexdigest()
 
-        st.session_state.user_collection.insert_one(
+        st.session_state.users_collection.insert_one(
             {
                 "username": secrets_retriever.get_secret("super_admin_username"),
                 "user_id": 0,
@@ -170,7 +170,7 @@ def initialise_log_collection():
 
 
 def set_function_access_for_user():
-    user_document = st.session_state.user_collection.find_one(
+    user_document = st.session_state.users_collection.find_one(
         {"username": st.session_state.user["id"]}
     )
 
@@ -227,7 +227,7 @@ def erase_all_session_state():
 
 def load_user_profile_information(username):
     """Loads the user profile from the database and updates session state."""
-    user_document = st.session_state.user_collection.find_one({"username": username})
+    user_document = st.session_state.users_collection.find_one({"username": username})
 
     if user_document:
         user_profile = {
@@ -246,7 +246,7 @@ def hash_password(password):
 def is_valid_password(username, password):
     """Checks if the password matches the stored password."""
     hashed_password = hash_password(password)
-    user_document = st.session_state.user_collection.find_one({"username": username})
+    user_document = st.session_state.users_collection.find_one({"username": username})
     if user_document and hashed_password == user_document["password"]:
         return True
     return False

@@ -8,8 +8,8 @@ from constants import STU
 def fetch_all_collections():
     if "school_collection" in st.session_state:
         st.session_state.school_collection = None
-    if "user_collection" in st.session_state:
-        st.session_state.user_collection = None
+    if "users_collection" in st.session_state:
+        st.session_state.users_collection = None
 
     secrets_retriever = SecretsRetriever()
     MONGO_URI = secrets_retriever.get_secret("mongo_uri")
@@ -18,7 +18,7 @@ def fetch_all_collections():
     client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
     db = client[DATABASE_NAME]
     st.session_state.school_collection = db["schools"]
-    st.session_state.user_collection = db["users"]
+    st.session_state.users_collection = db["users"]
     st.session_state.app_settings_collection = db["app_settings"]
 
 
@@ -87,5 +87,29 @@ def fetch_students_belonging_to_teacher(school_name, selected_level, selected_cl
         return []
 
 
+def get_class():
+    student_document = st.session_state.users_collection.find_one(
+        {"username": st.session_state.user["id"]}, {"class": 1, "_id": 0}
+    )
+
+    if student_document:
+        student_class = student_document.get("class", "Class not specified")
+        return student_class
+
+
 def get_teacher_document(teacher_username):
     return st.session_state.users_collection.find_one({"username": teacher_username})
+
+
+def get_teachers_of_class(student_class):
+    """the query looks for teachers who teach this specific class."""
+    teachers = st.session_state.users_collection.find(
+        {
+            "profile": "Teacher",
+            "class": student_class,  # Direct comparison to the single class string
+        }
+    ).distinct(
+        "username"
+    )  # Assuming 'username' uniquely identifies a teacher
+
+    return teachers
