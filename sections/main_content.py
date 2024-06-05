@@ -3,6 +3,10 @@ from components.forms import login_form
 from functions.personal_dashboard import personal_dashboard
 from utils.app_utils import erase_all_session_state
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def load_app_main_content():
     if st.session_state.option == "Users login":
@@ -44,8 +48,6 @@ def load_app_main_content():
         st.write("Application Info")
 
     elif st.session_state.option == "Logout":
-        print('logging out')
+        print("logging out")
         erase_all_session_state()
         st.rerun()
-
-    st.write(st.session_state)
