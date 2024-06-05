@@ -17,6 +17,9 @@ def load_app_main_content():
             with col1:
                 login_form()
 
+                ### more things to add here
+                #
+
     elif st.session_state.option == "Personal Dashboard":
         personal_dashboard()
 

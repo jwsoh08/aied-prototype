@@ -2,6 +2,55 @@ import sqlite3
 import os
 
 
+def get_last_prompt_changes():
+    safa_date_change = None
+    acp_date_change = None
+    app_date_change = None
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    if not os.path.exists(WORKING_DIRECTORY):
+        os.makedirs(WORKING_DIRECTORY)
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+		SELECT date, prompt, changes 
+		FROM change_log_table
+		WHERE app_feature LIKE 'SAFA%'
+		ORDER BY date DESC
+	"""
+    )
+    safa_changes = cursor.fetchall()
+    if safa_changes:
+        safa_date_change = safa_changes[0][0]
+    cursor.execute(
+        """
+			SELECT date, prompt, changes
+			FROM change_log_table
+			WHERE app_feature LIKE 'ACP%'
+			ORDER BY date DESC
+		"""
+    )
+    acp_changes = cursor.fetchall()
+    if acp_changes:
+        acp_date_change = acp_changes[0][0]
+
+    cursor.execute(
+        """
+			SELECT date, app_feature, changes
+			FROM change_log_table
+			WHERE app_feature NOT LIKE 'SAFA%' AND app_feature NOT LIKE 'ACP%'
+			ORDER BY date DESC
+		"""
+    )
+    app_changes = cursor.fetchall()
+    if app_changes:
+        app_date_change = app_changes[0][0]
+    conn.close()
+    return safa_date_change, acp_date_change, app_date_change
+
+
 def get_app_config_condition(condition):
     cwd = os.getcwd()
     WORKING_DIRECTORY = os.path.join(cwd, "database")

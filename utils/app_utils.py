@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import hashlib
+from datetime import datetime, timedelta
 import streamlit as st
 
 from pymongo import MongoClient
@@ -250,6 +251,54 @@ def is_valid_password(username, password):
     if user_document and hashed_password == user_document["password"]:
         return True
     return False
+
+
+def check_update_dates(safa_date_change, acp_date_change, app_date_change):
+    current_date = datetime.now()
+    two_weeks_ago = current_date - timedelta(weeks=2)
+    update_message = ""
+
+    if safa_date_change is not None:
+        try:
+            safa_date = datetime.strptime(safa_date_change, "%Y-%m-%d %H:%M:%S.%f")
+            p_safa_date = safa_date.strftime("%Y-%m-%d")
+            if safa_date > two_weeks_ago:
+                print("Passed")
+                update_message += f"Note the prompt changes for the following: \n 1. ShortAnsFA on {p_safa_date}\n"
+        except (ValueError, TypeError):
+            pass
+
+    if acp_date_change is not None:
+        try:
+            acp_date = datetime.strptime(acp_date_change, "%Y-%m-%d %H:%M:%S.%f")
+            p_acp_date = acp_date.strftime("%Y-%m-%d")
+            print(acp_date)
+            if acp_date > two_weeks_ago:
+                if update_message:
+                    update_message += f"2. Authoring CoPilot on {acp_date}\n"
+                else:
+                    update_message += f"Note the prompt changes for following: \n 1. Authoring CoPilot on {p_acp_date}\n"
+        except (ValueError, TypeError):
+            pass
+
+    if app_date_change is not None:
+        try:
+            app_date = datetime.strptime(app_date_change, "%Y-%m-%d %H:%M:%S.%f")
+            p_app_date = app_date.strftime("%Y-%m-%d")
+            print(app_date)
+            if app_date > two_weeks_ago:
+                update_message += (
+                    f"\nThe prompt testing tool has been updated on {p_app_date}.\n\n"
+                )
+        except (ValueError, TypeError):
+            pass
+
+    if update_message:
+        update_message += "\n\nPlease go to the Application & Prompt Change logs in the side menu to get more details"
+    else:
+        update_message = "No log or app updates within the last 2 weeks"
+
+    return update_message
 
 
 @st.experimental_dialog("Terms and Conditions of Use")
