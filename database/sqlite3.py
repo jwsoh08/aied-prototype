@@ -34,6 +34,75 @@ def get_app_config_condition(condition):
         conn.close()
 
 
+def fetch_all_conversational_data():
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+
+    # Fetch all data from data_table
+    cursor.execute("SELECT * FROM Data_Table")
+    rows = cursor.fetchall()
+    column_names = [description[0] for description in cursor.description]
+
+    conn.close()
+    return rows, column_names
+
+
+def fetch_conversational_data_by_school(sch_id):
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+
+    # Fetch data from data_table based on the given username
+    cursor.execute("SELECT * FROM Data_Table WHERE school_id=?", (sch_id,))
+    rows = cursor.fetchall()
+    column_names = [description[0] for description in cursor.description]
+
+    conn.close()
+    return rows, column_names
+
+
+def fetch_data_by_username(user_id):
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+
+    # Fetch data from data_table based on the given username
+    cursor.execute("SELECT * FROM Data_Table WHERE user_id=?", (user_id,))
+    rows = cursor.fetchall()
+    column_names = [description[0] for description in cursor.description]
+
+    conn.close()
+    return rows, column_names
+
+
+def fetch_data_by_students(list_of_students):
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+
+    # Generate placeholders for each item in the list
+    placeholders = ",".join("?" for _ in list_of_students)
+
+    # Fetch data from data_table based on the given username
+    query = "SELECT * FROM Data_Table WHERE user_id IN ({})".format(placeholders)
+    cursor.execute(query, list_of_students)
+
+    rows = cursor.fetchall()
+    column_names = [description[0] for description in cursor.description]
+
+    conn.close()
+    return rows, column_names
+
+
 def insert_condition_record_in_app_config(condition, value):
     cwd = os.getcwd()
     WORKING_DIRECTORY = os.path.join(cwd, "database")

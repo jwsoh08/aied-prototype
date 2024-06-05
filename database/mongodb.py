@@ -2,6 +2,8 @@ import streamlit as st
 from pymongo import MongoClient
 from utils.secrets_reader import SecretsRetriever
 
+from constants import STU
+
 
 def fetch_all_collections():
     if "school_collection" in st.session_state:
@@ -54,3 +56,36 @@ def fetch_all_schools_names():
         return []
 
     return sch_names
+
+
+def fetch_students_belonging_to_teacher(school_name, selected_level, selected_class):
+
+    if selected_level and selected_class:
+        students_cursor = st.session_state.users_collection.find(
+            {
+                "sch_name": school_name,
+                # Check if 'selected_level' is in the list of levels
+                "level": {"$in": [selected_level]},
+                # Check if 'selected_class' is in the list of classes
+                "class": {"$in": [selected_class]},
+                # Assuming "STU" is a constant representing the student profile
+                "profile": STU,
+            },
+            # Project only the username
+            {"_id": 0, "username": 1},
+        )
+
+        students = [student["username"] for student in students_cursor]
+
+        if not students:
+            st.warning("No students found for this class.")
+            return []
+        else:
+            return students
+    else:
+        # If level or class is not selected, return an empty list (or you may handle this case differently)
+        return []
+
+
+def get_teacher_document(teacher_username):
+    return st.session_state.users_collection.find_one({"username": teacher_username})

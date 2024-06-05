@@ -14,7 +14,7 @@ from database.sqlite3 import (
 )
 
 from config.settings import MENU_FUNCTIONS, PROMPT_CONFIG, APP_CONFIG
-from constants import GEN_AI_ACKNOWLEDGEMENT
+from constants import GEN_AI_ACKNOWLEDGEMENT, SA
 
 
 def initialise_app():
@@ -31,7 +31,7 @@ def initialise_app():
             generative_ai_use_acknowledgement()
 
         else:
-            if st.session_state.user["profile_id"] == "Super Administrator":
+            if st.session_state.user["profile_id"] == SA:
                 initialize_side_navigation_state(MENU_FUNCTIONS, True)
             else:
                 set_function_access_for_user()
@@ -45,7 +45,7 @@ def initialise_app():
 
 
 def load_app_configuration(config_type, settings):
-    if st.session_state.user["profile_id"] == "Super Administrator":
+    if st.session_state.user["profile_id"] == SA:
         return
 
     excluded_fields = ["_id", "sch_name"]
@@ -118,7 +118,7 @@ def initialise_admin_account():
                 "username": secrets_retriever.get_secret("super_admin_username"),
                 "user_id": 0,
                 "password": hashed_password,
-                "profile": "Super Administrator",
+                "profile": SA,
                 "sch_name": "MOE Schools",
             }
         )

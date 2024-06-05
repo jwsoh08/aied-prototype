@@ -6,3 +6,8 @@ or reflect the latest real-world developments. We encourage users to use discret
 limitations. Your interaction with our AI helps improve its performance over time. By continuing to use 
 our services, you acknowledge and agree to the use of this technology.
 """
+
+SA = "Super Administrator"
+AD = "Administrator"
+TCH = "Teacher"
+STU = "Student"
