@@ -21,30 +21,39 @@ def load_app_main_content():
         personal_dashboard()
 
     elif st.session_state.option == "AI Chatbot":
+        # Thursday 6th Jun (6 hours)
         st.write("AI Chatbot")
 
     elif st.session_state.option == "Authoring Copilot":
+        # Friday 7th Jun (6 hours)
         st.write("Authoring Copilot")
 
     elif st.session_state.option == "Short Answer FA":
+        # Saturday 8th Jun (6 hours)
         st.write("Short Answer FA")
 
     elif st.session_state.option == "KB (RAG) Management":
+        # Sunday 9th Jun (6 hours)
         st.write("KB (RAG) Management")
 
     elif st.session_state.option == "Prompt Management":
+        # Monday 10th Jun (6 hours)
         st.write("Prompt Management")
 
     elif st.session_state.option == "Org Management":
+        # Tuesday 11th Jun (6 hours)
         st.write("Org Management")
 
     elif st.session_state.option == "Profile Settings":
+        # Wednesday 12th Jun (6 hours)
         st.write("Profile Settings")
 
     elif st.session_state.option == "Application & Prompt change logs":
+        # Thursday 13th Jun (4 hours)
         st.write("Application & Prompt change logs")
 
     elif st.session_state.option == "Application Info":
+        # Thursday 13th Jun (4 hours)
         st.write("Application Info")
 
     elif st.session_state.option == "Logout":
