@@ -1,6 +1,36 @@
 import sqlite3
 import os
 
+import streamlit as st
+
+
+def insert_into_data_table(date, chatbot_ans, user_prompt, tokens, function_name):
+    cwd = os.getcwd()
+    WORKING_DIRECTORY = os.path.join(cwd, "database")
+    WORKING_DATABASE = os.path.join(WORKING_DIRECTORY, "sqlite3.db")
+    conn = sqlite3.connect(WORKING_DATABASE)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+		INSERT INTO Data_Table (date, user_id, profile_id, school_id, chatbot_ans, user_prompt, function_name, tokens)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	""",
+        (
+            date,
+            st.session_state.user["id"],
+            st.session_state.user["profile_id"],
+            st.session_state.user["school_id"],
+            chatbot_ans,
+            user_prompt,
+            function_name,
+            tokens,
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
 
 def get_last_prompt_changes():
     safa_date_change = None
