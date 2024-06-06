@@ -1,6 +1,7 @@
 import streamlit as st
 from components.forms import login_form
 from functions.personal_dashboard import personal_dashboard
+from functions.ai_chatbot import ai_chatbot
 from utils.app_utils import erase_all_session_state
 
 from dotenv import load_dotenv
@@ -17,15 +18,11 @@ def load_app_main_content():
             with col1:
                 login_form()
 
-                ### more things to add here
-                #
-
     elif st.session_state.option == "Personal Dashboard":
         personal_dashboard()
 
     elif st.session_state.option == "AI Chatbot":
-        # Thursday 6th Jun (6 hours)
-        st.write("AI Chatbot")
+        ai_chatbot()
 
     elif st.session_state.option == "Authoring Copilot":
         # Friday 7th Jun (6 hours)

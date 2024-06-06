@@ -101,6 +101,39 @@ def load_initial_app_session_states():
             st.session_state.app_settings_collection = None
 
 
+def load_chatbot_session_states():
+    if "msg" not in st.session_state:
+        st.session_state.msg = []
+
+    if "memoryless" not in st.session_state:
+        st.session_state.memoryless = False
+
+    if "chatbot" not in st.session_state:
+        st.session_state.chatbot = "You are a helpful assistant"
+
+    # Vectorstore aka RAG KB
+    if "vs" not in st.session_state:
+        st.session_state.vs = None
+
+    if "current_kb_model" not in st.session_state:
+        st.session_state.current_kb_model = ""
+
+    if "button_text" not in st.session_state:
+        st.session_state.button_text = "Cancel"
+
+    if "data_doc" not in st.session_state:
+        st.session_state.data_doc = ""
+
+    if "download_response_flag" not in st.session_state:
+        st.session_state.download_response_flag = False
+
+    if "chat_response" not in st.session_state:
+        st.session_state.chat_response = ""
+
+    if "rag_response" not in st.session_state:
+        st.session_state.rag_response = None
+
+
 def initialise_admin_account():
     if is_app_config_condition_true("MOE Schools"):
         return

@@ -5,6 +5,17 @@ from utils.secrets_reader import SecretsRetriever
 from constants import STU
 
 
+def initialise_rag_collection():
+    if "rag_collection" not in st.session_state:
+        secrets_retriever = SecretsRetriever()
+        MONGO_URI = secrets_retriever.get_secret("mongo_uri")
+        DATABASE_NAME = secrets_retriever.get_secret("mongo_database")
+
+        client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
+        db = client[DATABASE_NAME]
+        st.session_state.rag_collection = db["rag"]
+
+
 def fetch_all_collections():
     if "school_collection" in st.session_state:
         st.session_state.school_collection = None

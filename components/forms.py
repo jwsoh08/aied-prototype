@@ -20,3 +20,53 @@ def login_form():
 
             else:
                 st.error("Username and Password is incorrect")
+
+
+def ai_chatbot_settings():
+    with st.form(key="sliders_form"):
+        st.write("Current User Bot Settings")
+        temp = st.slider(
+            "Temp",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state.default_temp),
+            step=0.01,
+        )
+        presence_penalty = st.slider(
+            "Presence Penalty",
+            min_value=-2.0,
+            max_value=2.0,
+            value=float(st.session_state.default_presence_penalty),
+            step=0.01,
+        )
+        frequency_penalty = st.slider(
+            "Frequency Penalty",
+            min_value=-2.0,
+            max_value=2.0,
+            value=float(st.session_state.default_frequency_penalty),
+            step=0.01,
+        )
+        chat_memory = st.slider(
+            "Chat Memory",
+            min_value=0,
+            max_value=10,
+            value=int(st.session_state.default_k_memory),
+            step=1,
+        )
+        top_p = st.slider(
+            "Top P",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state.default_top_p),
+            step=0.01,
+        )
+
+        submit_button = st.form_submit_button(label="Submit")
+
+        if submit_button:
+            st.session_state.default_temp = temp
+            st.session_state.default_presence_penalty = presence_penalty
+            st.session_state.default_frequency_penalty = frequency_penalty
+            st.session_state.default_k_memory = chat_memory
+            st.session_state.default_top_p = top_p
+            st.success("Parameters saved!")
