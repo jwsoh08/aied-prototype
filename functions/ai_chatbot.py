@@ -12,14 +12,305 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.memory import ConversationBufferWindowMemory
 
+import google.generativeai as genai
+import anthropic
+
 from database.mongodb import initialise_rag_collection, fetch_serialized_faiss
 from database.sqlite3 import insert_into_data_table
 from utils.app_utils import load_chatbot_session_states
-from utils.secrets_reader import SecretsRetriever
+from utils.secrets_reader import (
+    SecretsRetriever,
+    return_google_key,
+    return_claude_key,
+    return_cohere_key,
+)
 
 from components.forms import ai_chatbot_settings
 from config.settings import CHATBOT_MODEL_LIST
 from constants import SA, AD
+
+
+def claude_bot(bot_name, c_model, memory_flag, rag_flag):
+    client = anthropic.Anthropic(api_key=return_claude_key())
+    greetings_str = f"Hi, I am Claude {bot_name}"
+    help_str = "How can I help you today?"
+    # Check if st.session_state.msg exists, and if not, initialize with greeting and help messages
+    if "msg" not in st.session_state:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+    elif st.session_state.msg == []:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+
+    messages = st.container(border=True)
+    # showing the history of the chatbots
+    for message in st.session_state.msg:
+        with messages.chat_message(message["role"]):
+            st.markdown(message["content"])
+    # chat bot input
+
+    try:
+        if prompt := st.chat_input("Enter your query"):
+            st.session_state.msg.append({"role": "user", "content": prompt})
+            with messages.chat_message("user"):
+                st.markdown(prompt)
+            with messages.chat_message("assistant"):
+                prompt_template = prompt_template_function(
+                    prompt, memory_flag, rag_flag
+                )
+                with client.messages.stream(
+                    max_tokens=1024,
+                    system=prompt_template,
+                    messages=[{"role": "user", "content": prompt}],
+                    model=c_model,
+                ) as stream:
+
+                    response = st.write_stream(stream.text_stream)
+            st.session_state.msg.append({"role": "assistant", "content": response})
+            if memory_flag:
+                st.session_state["memory"].save_context(
+                    {"input": prompt}, {"output": response}
+                )
+                # Insert data into the table
+            now = datetime.now()  # Using ISO format for date
+            response_str = str(response)
+            prompt_str = str(prompt)
+            # Now concatenate and calculate the length as intended.
+            num_tokens = len(response_str + prompt_str) * 1.3
+            # st.write(num_tokens)
+            insert_into_data_table(
+                now.strftime("%d/%m/%Y %H:%M:%S"),
+                response_str,
+                prompt_str,
+                num_tokens,
+                bot_name,
+            )
+            if st.session_state.download_response_flag == True:
+                st.session_state.chat_response = add_response(response)
+
+    except Exception as e:
+        st.exception(e)
+
+
+def gemini_bot(bot_name, c_model, memory_flag, rag_flag):
+    genai.configure(api_key=return_google_key())
+    greetings_str = f"Hi, I am Gemini {bot_name}"
+    help_str = "How can I help you today?"
+    # Check if st.session_state.msg exists, and if not, initialize with greeting and help messages
+    if "msg" not in st.session_state:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+    elif st.session_state.msg == []:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+
+    messages = st.container(border=True)
+    # showing the history of the chatbots
+    for message in st.session_state.msg:
+        with messages.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    try:
+        if prompt := st.chat_input("Enter your query"):
+            st.session_state.msg.append({"role": "user", "content": prompt})
+            with messages.chat_message("user"):
+                st.markdown(prompt)
+            with messages.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                # response =
+                chat_model = genai.GenerativeModel(c_model)
+                prompt_template = prompt_template_function(
+                    prompt, memory_flag, rag_flag
+                )
+                prompt = (prompt_template + "\n This is the user query" + prompt,)
+                response_stream = chat_model.generate_content(prompt, stream=True)
+                for response_object in response_stream:
+                    # Check if response_object has a 'text' attribute
+                    if hasattr(response_object, "text"):
+                        # Append the text to full_response
+                        full_response += response_object.text
+
+                        # Update the placeholder with the current state of full_response
+                    message_placeholder.markdown(full_response + "▌")
+
+                # Final update to the placeholder after streaming is complete
+                message_placeholder.markdown(full_response)
+
+            st.session_state.msg.append({"role": "assistant", "content": full_response})
+            if memory_flag:
+                st.session_state["memory"].save_context(
+                    {"input": prompt}, {"output": full_response}
+                )
+            # Insert data into the table
+            now = datetime.now()  # Using ISO format for date
+            full_response_str = str(full_response)
+            prompt_str = str(prompt)
+
+            # Now concatenate and calculate the length as intended.
+            num_tokens = len(full_response_str + prompt_str) * 1.3
+            # st.write(num_tokens)
+            insert_into_data_table(
+                now.strftime("%d/%m/%Y %H:%M:%S"),
+                full_response_str,
+                prompt_str,
+                num_tokens,
+                bot_name,
+            )
+            if st.session_state.download_response_flag == True:
+                st.session_state.chat_response = add_response(full_response)
+
+    except Exception as e:
+        st.exception(e)
+
+
+def openai_bot(bot_name, c_model, memory_flag, rag_flag):
+    secrets_retriever = SecretsRetriever()
+    client = OpenAI(
+        api_key=secrets_retriever.get_secret("openai_api_key"),
+    )
+
+    full_response = ""
+    greetings_str = f"Hi, I am {bot_name}"
+    help_str = "How can I help you today?"
+    # Check if st.session_state.msg exists, and if not, initialize with greeting and help messages
+    if "msg" not in st.session_state:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+    elif st.session_state.msg == []:
+        st.session_state.msg = [
+            {"role": "assistant", "content": greetings_str},
+            {"role": "assistant", "content": help_str},
+        ]
+    messages = st.container(border=True)
+    # showing the history of the chatbots
+    for message in st.session_state.msg:
+        with messages.chat_message(message["role"]):
+            st.markdown(message["content"])
+    # chat bot input
+    try:
+        if prompt := st.chat_input("Enter your query"):
+            st.session_state.msg.append({"role": "user", "content": prompt})
+            with messages.chat_message("user"):
+                st.markdown(prompt)
+            with messages.chat_message("assistant"):
+                prompt_template = prompt_template_function(
+                    prompt, memory_flag, rag_flag
+                )
+                stream = client.chat.completions.create(
+                    model=c_model,
+                    messages=[
+                        {"role": "system", "content": prompt_template},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=float(st.session_state.default_temp),
+                    stream=True,
+                )
+                response = st.write_stream(stream)
+            st.session_state.msg.append({"role": "assistant", "content": response})
+            if memory_flag:
+                st.session_state["memory"].save_context(
+                    {"input": prompt}, {"output": response}
+                )
+            # Insert data into the table
+            now = datetime.now()  # Using ISO format for date
+            num_tokens = len(full_response + prompt) * 1.3
+            insert_into_data_table(
+                now.strftime("%d/%m/%Y %H:%M:%S"),
+                response,
+                prompt,
+                num_tokens,
+                bot_name,
+            )
+            if st.session_state.download_response_flag == True:
+                st.session_state.chat_response = add_response(response)
+
+    except Exception as e:
+        st.exception(e)
+
+
+def cohere_bot(bot_name, c_model, memory_flag, rag_flag):
+    pass
+    # co = cohere.Client(return_cohere_key())
+    # greetings_str = f"Hi, I am Cohere {bot_name}"
+    # help_str = "How can I help you today?"
+    # # Check if st.session_state.msg exists, and if not, initialize with greeting and help messages
+    # if "msg" not in st.session_state:
+    #     st.session_state.msg = [
+    #         {"role": "assistant", "content": greetings_str},
+    #         {"role": "assistant", "content": help_str},
+    #     ]
+    # elif st.session_state.msg == []:
+    #     st.session_state.msg = [
+    #         {"role": "assistant", "content": greetings_str},
+    #         {"role": "assistant", "content": help_str},
+    #     ]
+
+    # messages = st.container(border=True)
+
+    # for message in st.session_state.msg:
+    #     with messages.chat_message(message["role"]):
+    #         st.markdown(message["content"])
+
+    # try:
+    #     if prompt := st.chat_input("Enter your query"):
+    #         st.session_state.msg.append({"role": "user", "content": prompt})
+    #         with messages.chat_message("user"):
+    #             st.markdown(prompt)
+    #         with messages.chat_message("assistant"):
+    #             message_placeholder = st.empty()
+    #             full_response = ""
+    #             prompt_msg = (
+    #                 prompt_template_function(prompt, memory_flag, rag_flag)
+    #                 + "\n This is the user query"
+    #                 + prompt
+    #             )
+    #             # if response and response.generations:
+    #             # for response in co.chat(prompt=faq + "\n" + prompt, max_tokens=1000, stream = True):
+    #             response_stream = co.chat_stream(message=prompt_msg, max_tokens=1000)
+
+    #             for response_object in response_stream:
+    #                 # Check if response_object has a 'text' attribute
+    #                 if hasattr(response_object, "text"):
+    #                     # Append the text to full_response
+    #                     full_response += response_object.text
+
+    #                     # Update the placeholder with the current state of full_response
+    #                 message_placeholder.markdown(full_response + "▌")
+
+    #             # Final update to the placeholder after streaming is complete
+    #             message_placeholder.markdown(full_response)
+    #         st.session_state.msg.append({"role": "assistant", "content": full_response})
+    #         if memory_flag:
+    #             st.session_state["memory"].save_context(
+    #                 {"input": prompt}, {"output": full_response}
+    #             )
+    #             # Insert data into the table
+    #         now = datetime.now()  # Using ISO format for date
+    #         num_tokens = len(full_response + prompt) * 1.3
+    #         # st.write(num_tokens)
+    #         insert_into_data_table(
+    #             now.strftime("%d/%m/%Y %H:%M:%S"),
+    #             full_response,
+    #             prompt,
+    #             num_tokens,
+    #             bot_name,
+    #         )
+    #         if st.session_state.download_response_flag == True:
+    #             st.session_state.chat_response = add_response(full_response)
+
+    # except Exception as e:
+    #     st.exception(e)
 
 
 def add_response(response):
@@ -91,73 +382,6 @@ def prompt_template_function(prompt, memory_flag, rag_flag):
         return prompt_template
     else:  # base bot nothing
         return st.session_state.chatbot
-
-
-def openai_bot(bot_name, c_model, memory_flag, rag_flag):
-    secrets_retriever = SecretsRetriever()
-    client = OpenAI(
-        api_key=secrets_retriever.get_secret("openai_api_key"),
-    )
-
-    full_response = ""
-    greetings_str = f"Hi, I am {bot_name}"
-    help_str = "How can I help you today?"
-    # Check if st.session_state.msg exists, and if not, initialize with greeting and help messages
-    if "msg" not in st.session_state:
-        st.session_state.msg = [
-            {"role": "assistant", "content": greetings_str},
-            {"role": "assistant", "content": help_str},
-        ]
-    elif st.session_state.msg == []:
-        st.session_state.msg = [
-            {"role": "assistant", "content": greetings_str},
-            {"role": "assistant", "content": help_str},
-        ]
-    messages = st.container(border=True)
-    # showing the history of the chatbots
-    for message in st.session_state.msg:
-        with messages.chat_message(message["role"]):
-            st.markdown(message["content"])
-    # chat bot input
-    try:
-        if prompt := st.chat_input("Enter your query"):
-            st.session_state.msg.append({"role": "user", "content": prompt})
-            with messages.chat_message("user"):
-                st.markdown(prompt)
-            with messages.chat_message("assistant"):
-                prompt_template = prompt_template_function(
-                    prompt, memory_flag, rag_flag
-                )
-                stream = client.chat.completions.create(
-                    model=c_model,
-                    messages=[
-                        {"role": "system", "content": prompt_template},
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=float(st.session_state.default_temp),
-                    stream=True,
-                )
-                response = st.write_stream(stream)
-            st.session_state.msg.append({"role": "assistant", "content": response})
-            if memory_flag:
-                st.session_state["memory"].save_context(
-                    {"input": prompt}, {"output": response}
-                )
-            # Insert data into the table
-            now = datetime.now()  # Using ISO format for date
-            num_tokens = len(full_response + prompt) * 1.3
-            insert_into_data_table(
-                now.strftime("%d/%m/%Y %H:%M:%S"),
-                response,
-                prompt,
-                num_tokens,
-                bot_name,
-            )
-            if st.session_state.download_response_flag == True:
-                st.session_state.chat_response = add_response(response)
-
-    except Exception as e:
-        st.exception(e)
 
 
 def response_download():
@@ -556,9 +780,9 @@ def ai_chatbot():
             chat_bot = st.session_state.default_llm_model
         if chat_bot.startswith("gpt"):
             openai_bot("AI Chatbot", chat_bot, memory, rag)
-        # elif chat_bot.startswith("gemini"):
-        #     gemini_bot(CHATBOT, chat_bot, memory, rag)
-        # elif chat_bot.startswith("claude"):
-        #     claude_bot(CHATBOT, chat_bot, memory, rag)
+        elif chat_bot.startswith("gemini"):
+            gemini_bot("AI Chatbot", chat_bot, memory, rag)
+        elif chat_bot.startswith("claude"):
+            claude_bot("AI Chatbot", chat_bot, memory, rag)
         # elif chat_bot.startswith("cohere"):
         # 	cohere_bot(CHATBOT, chat_bot, memory, rag)

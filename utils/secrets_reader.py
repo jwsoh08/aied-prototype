@@ -49,3 +49,27 @@ class SecretsRetriever:
             return st.secrets[name]
         else:
             return SecretsManager.get_secret(name)
+
+
+def return_openai_key():
+    return st.session_state.openai_key
+
+
+def return_cohere_key():
+    return st.session_state.cohere_key
+
+
+def return_google_key():
+    return st.session_state.google_key
+
+
+def return_claude_key():
+    return st.session_state.claude_key
+
+
+def return_serp_key():
+    return st.session_state.serp_key
+
+
+def return_assistant_id_1():
+    return st.session_state.assistant_id_1
