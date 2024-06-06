@@ -4,7 +4,10 @@ import streamlit as st
 from pymongo import MongoClient
 import pandas as pd
 
-from database.mongodb import initialise_rag_collection
+from database.mongodb import initialise_rag_collection, fetch_serialized_faiss
+
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
 
 from utils.app_utils import load_chatbot_session_states
 from utils.secrets_reader import SecretsRetriever
@@ -41,9 +44,13 @@ def list_rags_for_owner(db_collection, owner):
     return rag_names
 
 
+def set_index_button():
+    st.session_state.index_button = 0
+
+
 def load_rag():
     if "index_button" not in st.session_state:
-        st.session_state.index_button = 0
+        set_index_button()
 
     secrets_retriever = SecretsRetriever()
     os.environ["OPENAI_API_KEY"] = secrets_retriever.get_secret("openai_api_key")
@@ -54,39 +61,32 @@ def load_rag():
     # Fetch all RAGs for the current user
     if st.toggle("Load Personal RAG"):
         display_rag_documents_as_dataframe(st.session_state.user["id"])
-        rag_list = list_rags_for_owner(st.session_state.rag_collection, st.session_state.user["id"])
+        rag_list = list_rags_for_owner(
+            st.session_state.rag_collection, st.session_state.user["id"]
+        )
         if rag_list == []:
             st.error("No RAGs found.")
         else:
             rag_name = st.selectbox("Select RAG", ["-"] + rag_list)
-    #         d1, d2, d3 = st.columns([2, 2, 3])
-    #         with d1:
-    #             if st.button("Load RAG", on_click=index_button):
-    #                 if rag_name != "-":
-    #                     # Fetch the serialized FAISS object from the database
-    #                     serialized_faiss = fetch_serialized_faiss(
-    #                         st.session_state.rag_collection,
-    #                         rag_name,
-    #                         st.session_state.user["id"],
-    #                     )
-    #                     # Unserialize the FAISS object
-    #                     # faiss_obj = unserialize_faiss_object(serialized_faiss)
-    #                     embeddings_instance = OpenAIEmbeddings()
-    #                     faiss_obj = FAISS.deserialize_from_bytes(
-    #                         embeddings=embeddings_instance, serialized=serialized_faiss
-    #                     )
-
-    #                     if faiss_obj is not None:
-    #                         # Proceed with using the deserialized FAISS index
-    #                         print("FAISS index deserialized successfully.")
-    #                     else:
-    #                         print("Failed to deserialize FAISS index.")
-    #                     # Return the FAISS object
-    #                     st.session_state.vs = faiss_obj
-    #                     st.session_state.current_kb_model = rag_name
-    #                     st.rerun()
-    #                 else:
-    #                     st.warning("Please select a RAG to load.")
+            d1, d2, d3 = st.columns([2, 2, 3])
+            with d1:
+                if st.button("Load RAG", on_click=set_index_button):
+                    if rag_name != "-":
+                        serialized_faiss = fetch_serialized_faiss(
+                            st.session_state.rag_collection,
+                            rag_name,
+                            st.session_state.user["id"],
+                        )
+                        embeddings_instance = OpenAIEmbeddings()
+                        faiss_obj = FAISS.deserialize_from_bytes(
+                            embeddings=embeddings_instance, serialized=serialized_faiss
+                        )
+                        st.session_state.vs = faiss_obj
+                        st.session_state.current_kb_model = rag_name
+                        st.rerun()
+                    else:
+                        st.warning("Please select a RAG to load.")
+                        
     #         with d2:
     #             if st.session_state.vs is not None:
     #                 if st.button("Unload RAG"):

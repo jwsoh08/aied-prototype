@@ -5,6 +5,14 @@ from utils.secrets_reader import SecretsRetriever
 from constants import STU
 
 
+def fetch_serialized_faiss(db_collection, rag_name, owner):
+    document = db_collection.find_one({"name": rag_name, "owner": owner})
+    if document:
+        return document["rag_data"]
+    else:
+        return None
+
+
 def initialise_rag_collection():
     if "rag_collection" not in st.session_state:
         secrets_retriever = SecretsRetriever()
