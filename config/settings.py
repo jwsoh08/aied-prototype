@@ -74,6 +74,23 @@ APP_CONFIG = {
     "default_password": "p@ssword",
 }
 
+SAFA_CONFIG = {
+    "default_temp": 0.1,
+    "default_frequency_penalty": 0.0,
+    "default_presence_penalty": 0.0,
+    "default_top_p": 0.0,
+    "default_max_tokens": 4000,
+    "default_llm_model": "gpt-4o",
+}
+
+SAFA_PROMPT_OPTIONS = {
+		"SAFA OpenAI Production Prompt": "st.session_state.safa_openai_production_prompt",
+		"SAFA OpenAI Development Prompt 1": "st.session_state.safa_openai_development_prompt_1",
+		"SAFA OpenAI Development Prompt 2": "st.session_state.safa_openai_development_prompt_2",
+		"SAFA OpenAI Development Prompt 3": "st.session_state.safa_openai_development_prompt_3",
+		"SAFA Claude Development Prompt 1": "st.session_state.safa_claude_development_prompt_1",	
+	}
+
 CHATBOT_MODEL_LIST = [
     "gpt-3.5-turbo-0125",
     "claude-3-haiku-20240307",
@@ -148,4 +165,18 @@ SUBJECTS_SINGAPORE = [
 ]
 
 
-AC_MODEL_LIST = ["claude-3-haiku-20240307","gpt-3.5-turbo-0125", "gpt-4o", "gpt-3.5-turbo-1106", "claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+AC_MODEL_LIST = [
+    "claude-3-haiku-20240307",
+    "gpt-3.5-turbo-0125",
+    "gpt-4o",
+    "gpt-3.5-turbo-1106",
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+]
+
+SAFA_MODEL_LIST = ["gpt-4o","gpt-3.5-turbo-0125",  "claude-3-haiku-20240307", "gpt-3.5-turbo-1106", "claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+
+RUBRICS = """
+            Id for this dimension: 21478.Dimension Criteria: Relevance to question – up to 1 – The point has little relevance to the question., up to 3 – The point is largely relevant to the question. Maximum mark for this dimension:3.
+		    Id for this dimension: 21479.Dimension Criteria: Depth of Answer. – up to 1 – No examples or illustration., up to 3 – Some examples to full range of examples. Maximum mark for this dimension:3.
+        """

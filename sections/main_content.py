@@ -3,6 +3,7 @@ from components.forms import login_form
 from functions.personal_dashboard import personal_dashboard
 from functions.ai_chatbot import ai_chatbot
 from functions.authoring_copilot import authoring_copilot
+from functions.short_answer_fa import prompt_analyser
 from utils.app_utils import erase_all_session_state
 
 from dotenv import load_dotenv
@@ -26,11 +27,12 @@ def load_app_main_content():
         ai_chatbot()
 
     elif st.session_state.option == "Authoring Copilot":
+        st.subheader(f":green[{st.session_state.option}]")
         authoring_copilot()
 
     elif st.session_state.option == "Short Answer FA":
-        # Saturday 8th Jun (6 hours)
-        st.write("Short Answer FA")
+        st.subheader(f":green[{st.session_state.option}]")
+        prompt_analyser()
 
     elif st.session_state.option == "KB (RAG) Management":
         # Sunday 9th Jun (6 hours)
