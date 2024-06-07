@@ -55,6 +55,10 @@ def return_openai_key():
     return st.session_state.openai_key
 
 
+def return_openai_key():
+    return st.session_state.openai_key
+
+
 def return_cohere_key():
     return st.session_state.cohere_key
 

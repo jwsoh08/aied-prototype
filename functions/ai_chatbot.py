@@ -22,6 +22,7 @@ from utils.secrets_reader import (
     SecretsRetriever,
     return_google_key,
     return_claude_key,
+    return_openai_key,
     return_cohere_key,
 )
 
@@ -173,11 +174,9 @@ def gemini_bot(bot_name, c_model, memory_flag, rag_flag):
 
 
 def openai_bot(bot_name, c_model, memory_flag, rag_flag):
-    secrets_retriever = SecretsRetriever()
     client = OpenAI(
-        api_key=secrets_retriever.get_secret("openai_api_key"),
+        api_key=return_openai_key(),
     )
-
     full_response = ""
     greetings_str = f"Hi, I am {bot_name}"
     help_str = "How can I help you today?"
@@ -464,7 +463,7 @@ def list_rags_for_shareable(db_collection, school):
 
 
 def sa_select_school():
-    documents = st.session_state.s_collection.find({}, {"sch_name": 1, "_id": 0})
+    documents = st.session_state.school_collection.find({}, {"sch_name": 1, "_id": 0})
     sch_names = [doc["sch_name"] for doc in documents]
     if not sch_names:
         st.error("No schools found. Please add a school first.")
