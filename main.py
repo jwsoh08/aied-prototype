@@ -174,7 +174,7 @@ def load_safa_session_states():
 def main():
 	try:
 		secret_retriever = SecretsRetriever()
-		app_title = secret_retriever("default_title")
+		app_title = secret_retriever.get_secret("default_title")
 		
 		st.title(app_title)
 		sac.divider(label='ETD & ITD Framework', icon='house', align='center')
