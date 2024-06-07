@@ -31,6 +31,8 @@ import configparser
 import ast
 import ssl
 import time
+
+from utils.secrets_reader import SecretsRetriever
 			  
 try:
 	_create_unverified_https_context = ssl._create_unverified_context
@@ -171,7 +173,10 @@ def load_safa_session_states():
 
 def main():
 	try:
-		st.title(st.secrets["default_title"])
+		secret_retriever = SecretsRetriever()
+		app_title = secret_retriever("default_title")
+		
+		st.title(app_title)
 		sac.divider(label='ETD & ITD Framework', icon='house', align='center')
 		#initialize session state options for side menubar for the application
 		if "options" not in st.session_state:

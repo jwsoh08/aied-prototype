@@ -11,6 +11,8 @@ from pymongo import MongoClient
 #from bson import ObjectId
 import time
 
+from utils.secrets_reader import SecretsRetriever
+
 
 class ConfigHandler:
 	def __init__(self):
@@ -69,7 +71,9 @@ def initialise_admin_account():
 		DATABASE_NAME = st.secrets["MONGO"]["DATABASE"]
 		
 	else:
-		aws_secret_manager()
+		secret_retriever = SecretsRetriever()
+		MONGO_URI = secret_retriever("mongo_uri")
+		DATABASE_NAME = secret_retriever("mongo_database")
 	client = MongoClient(MONGO_URI, tls=True,tlsAllowInvalidCertificates=True)
 	db = client[DATABASE_NAME]
 	st.session_state.s_collection = db["schools"]
