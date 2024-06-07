@@ -1,12 +1,17 @@
 import os
+import base64
+import tempfile
 from datetime import datetime
 import streamlit as st
 import streamlit_antd_components as sac
 
+
+import requests
 from pymongo import MongoClient
 import pandas as pd
 from Markdown2docx import Markdown2docx
 from openai import OpenAI
+import PIL
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OpenAIEmbeddings
@@ -312,6 +317,19 @@ def cohere_bot(bot_name, c_model, memory_flag, rag_flag):
     #     st.exception(e)
 
 
+def analyse_image_chat_gemini(temp_file_path, prompt):
+	genai.configure(api_key = return_google_key())
+	image = PIL.Image.open(temp_file_path)
+	vision_model = genai.GenerativeModel('gemini-pro-vision')
+	response = vision_model.generate_content([prompt,image])
+	if response:
+		os.remove(temp_file_path)
+		return response.text
+	else:
+		os.remove(temp_file_path)
+		return False
+
+
 def add_response(response):
     opt = sac.buttons(
         [sac.ButtonsItem(label="Save Response", color="#40826D")],
@@ -502,6 +520,157 @@ def set_index_button():
     st.session_state.index_button = 0
 
 
+def get_file_extension(file_name):
+	return os.path.splitext(file_name)[-1]
+
+
+def clear_session_states():
+	st.session_state.msg = []
+	if "memory" not in st.session_state:
+		pass
+	else:
+		del st.session_state["memory"]
+
+
+def detect_file_upload():
+	if "voice_image_file_exist" not in st.session_state:
+		st.session_state.voice_image_file_exist = None
+
+	uploaded_file = None
+	file_uploaded = False  # Flag to indicate if the file is uploaded
+
+	# Toggle button to enable/disable camera input
+	if st.toggle('Enable Camera', key=4):
+		img_file_buffer = st.camera_input("Take a picture")
+		if img_file_buffer is not None:
+			uploaded_file = img_file_buffer
+	else:
+		uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+		if uploaded_file is not None:
+			file_uploaded = True  # Set the flag when a file is uploaded
+
+
+	if uploaded_file is not None:
+		if file_uploaded:
+			# Display the uploaded image
+			st.image(uploaded_file, caption='Uploaded Image', use_column_width=True)
+
+		# Save the file to a temporary file
+		extension = get_file_extension(uploaded_file.name)
+		with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as temp_file:
+			temp_file.write(uploaded_file.getvalue())
+			temp_file_path = temp_file.name
+			st.session_state.voice_image_file_exist = temp_file_path, extension
+			st.success("Image uploaded successfully")
+	else:
+		st.session_state.voice_image_file_exist = None
+
+
+def encode_image(image_path):
+	with open(image_path, "rb") as image_file:
+		return base64.b64encode(image_file.read()).decode('utf-8')
+     
+
+def analyse_image_chat_openai(temp_file_path, prompt):
+	# Encode the image
+	api_key = return_openai_key()
+	base64_image = encode_image(temp_file_path)
+
+	# Prepare the payload
+	headers = {
+		"Content-Type": "application/json",
+		"Authorization": f"Bearer {api_key}"
+	}
+
+	payload = {
+		"model": "gpt-4o",
+		"messages": [
+			{
+				"role": "user",
+				"content": [
+					{
+						"type": "text",
+						"text": prompt
+					},
+					{
+						"type": "image_url",
+						"image_url": {
+							"url": f"data:image/jpeg;base64,{base64_image}"
+						}
+					}
+				]
+			}
+		],
+		"max_tokens": 500
+	}
+
+	# Send the request
+	response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+	# Display the response
+	if response.status_code == 200:
+		#st.write(response.json())
+		#st.write(response.json()["choices"][0]["message"]["content"])
+		os.remove(temp_file_path)
+		return response.json()["choices"][0]["message"]["content"]
+	else:
+		os.remove(temp_file_path)
+		st.session_state.voice_image_file_exist = None
+		st.error("Failed to get response")
+		return False
+
+
+def analyse_image_chat_anthropic(c_model,prompt):
+	# Open and read the image file in binary format
+	client = anthropic.Anthropic(api_key=return_claude_key())
+	
+	temp_file_path, extension = st.session_state.voice_image_file_exist
+	
+	with open(temp_file_path, "rb") as image_file:
+		image_data = base64.b64encode(image_file.read()).decode("utf-8")
+	
+	# Assuming the image is JPEG; adjust if necessary
+	if extension == ".png":
+		image_media_type = "image/png"
+	else:
+		image_media_type = "image/jpeg"
+	
+	# Create the message payload for the Anthropic API
+	message = client.messages.create(
+		model=c_model,
+		max_tokens=1024,
+		messages=[
+			{
+				"role": "user",
+				"content": [
+					{
+						"type": "image",
+						"source": {
+							"type": "base64",
+							"media_type": image_media_type,
+							"data": image_data,
+						},
+					},
+					{
+						"type": "text",
+						"text": prompt,
+					}
+				],
+			}
+		],
+	)
+	
+	# Clean up by removing the temporary file
+	os.remove(temp_file_path)
+	
+	# Extract and return the response text from the message
+	# Note: Adjust this based on how Anthropic structures the response
+	if message:
+		return message.content[0].text # Adjust according to the actual response structure
+	else:
+		return False
+
+
 def load_rag():
     if "index_button" not in st.session_state:
         set_index_button()
@@ -653,89 +822,6 @@ def load_rag():
                             st.rerun()
 
 
-def main_chatbot_functions():
-    # check if prompt_template is in session state the default is the chatbot_key
-    # check the school settings for chatbot settings
-    with st.expander("Chatbot Settings"):
-        c1, c2 = st.columns([1, 1])
-    # 	with c2:
-    # 		memory = True
-    # 		rag = True
-    # 		enable_vision = True
-    # 		show_rag = True
-    # 		chat_bot = "-"
-    # 		if st.session_state.user['profile_id'] == SA or st.session_state.user['profile_id'] == AD:
-    # 			if st.checkbox("Enable Chatbot Settings"):
-    # 				bot_settings()
-    # 			memory = st.checkbox("Memory Enabled", value=True)
-    # 			rag = st.checkbox("RAG Enabled", value=True)
-    # 			enable_vision = st.checkbox("Enable Image Analysis", value=True)
-    # 			show_rag = st.checkbox("Show RAG", value=True)
-    # 			chat_bot = st.selectbox("OpenAI model", ["-"] + CHATBOT_MODEL_LIST)
-    # 	with c1:
-    # 		if rag:
-    # 			load_rag()
-    # with st.expander("Download Chatbot Responses"):
-    # 	st.session_state.download_response_flag = st.checkbox("Enable Download Responses")
-    # 	complete_my_lesson()
-
-    # b1, b2 = st.columns([2,1])
-    # with b1:
-
-    # 	if chat_bot == "-":
-    # 		chat_bot = st.session_state.default_llm_model
-    # 	if chat_bot.startswith("gpt"):
-    # 		openai_bot(CHATBOT, chat_bot, memory, rag)
-    # 	elif chat_bot.startswith("gemini"):
-    # 		gemini_bot(CHATBOT, chat_bot, memory, rag)
-    # 	elif chat_bot.startswith("claude"):
-    # 		claude_bot(CHATBOT, chat_bot, memory, rag)
-    # 	# elif chat_bot.startswith("cohere"):
-    # 	# 	cohere_bot(CHATBOT, chat_bot, memory, rag)
-    # with b2:
-    # 	if st.button("Clear Chat"):
-    # 		# if "msg" in st.session_state and st.session_state.msg != []:
-    # 		# 	store_summary_chatbot_response()
-    # 		clear_session_states()
-    # 		st.rerun()
-    # 	if enable_vision:
-    # 		with st.container(border=True):
-    # 			if "memory" not in st.session_state:
-    # 				st.session_state.memory = ConversationBufferWindowMemory(k=st.session_state.default_k_memory)
-    # 			detect_file_upload()
-    # 			i_prompt = st.text_area("Enter a prompt for the image", value="From the image, I would like to know about this topic...", height=150)
-    # 			if st.button("Analyse Image"):
-    # 				if st.session_state.voice_image_file_exist:
-    # 					with st.spinner("Analysing image..."):
-    # 						# Analyse the image
-    # 						if chat_bot.startswith("gpt"):
-    # 							response = analyse_image_chat_openai(st.session_state.voice_image_file_exist[0], i_prompt)
-    # 						elif chat_bot.startswith("claude"):
-    # 							response = analyse_image_chat_anthropic(chat_bot, i_prompt)
-    # 						else: #default cohere and gemini use free image analysis
-    # 							response = analyse_image_chat_gemini(st.session_state.voice_image_file_exist[0], i_prompt)
-    # 						st.session_state.msg.append({"role": "assistant", "content": response})
-    # 						if memory:
-    # 							st.session_state["memory"].save_context({"input": i_prompt},{"output": response})
-    # 						st.rerun()
-    # 				else:
-    # 					st.error("Please upload an image first")
-
-    # 	if show_rag:
-    # 		with st.container(border=True):
-    # 			if rag:
-    # 				st.write("RAG Results")
-    # 				if st.session_state.rag_response == None  or st.session_state.rag_response == "":
-    # 					resource = ""
-    # 					source = ""
-    # 				else:
-    # 					resource, source = st.session_state.rag_response
-    # 				st.write("Resource: ", resource)
-    # 				st.write("Source : ", source)
-    # 			else:
-    # 				st.write("RAG is not enabled")
-
-
 def ai_chatbot():
     st.subheader(f":green[{st.session_state.option}]")
     load_chatbot_session_states()
@@ -785,3 +871,45 @@ def ai_chatbot():
             claude_bot("AI Chatbot", chat_bot, memory, rag)
         # elif chat_bot.startswith("cohere"):
         # 	cohere_bot(CHATBOT, chat_bot, memory, rag)
+    with b2:
+        if st.button("Clear Chat"):
+            # if "msg" in st.session_state and st.session_state.msg != []:
+            # 	store_summary_chatbot_response()
+            clear_session_states()
+            st.rerun()
+        if enable_vision:
+            with st.container(border=True):
+                if "memory" not in st.session_state:
+                    st.session_state.memory = ConversationBufferWindowMemory(k=st.session_state.default_k_memory)
+                detect_file_upload()
+                i_prompt = st.text_area("Enter a prompt for the image", value="From the image, I would like to know about this topic...", height=150)
+                if st.button("Analyse Image"):
+                    if st.session_state.voice_image_file_exist:
+                        with st.spinner("Analysing image..."):
+                            # Analyse the image
+                            if chat_bot.startswith("gpt"):
+                                response = analyse_image_chat_openai(st.session_state.voice_image_file_exist[0], i_prompt)
+                            elif chat_bot.startswith("claude"):
+                                response = analyse_image_chat_anthropic(chat_bot, i_prompt)
+                            else: #default cohere and gemini use free image analysis
+                                response = analyse_image_chat_gemini(st.session_state.voice_image_file_exist[0], i_prompt)
+                            st.session_state.msg.append({"role": "assistant", "content": response})
+                            if memory:
+                                st.session_state["memory"].save_context({"input": i_prompt},{"output": response})
+                            st.rerun()
+                    else:
+                        st.error("Please upload an image first")
+
+        if show_rag:
+            with st.container(border=True):
+                if rag:
+                    st.write("RAG Results")
+                    if st.session_state.rag_response == None  or st.session_state.rag_response == "":
+                        resource = ""
+                        source = ""
+                    else:
+                        resource, source = st.session_state.rag_response
+                    st.write("Resource: ", resource)
+                    st.write("Source : ", source)
+                else:
+                    st.write("RAG is not enabled")

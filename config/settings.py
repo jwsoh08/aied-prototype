@@ -84,3 +84,68 @@ CHATBOT_MODEL_LIST = [
     "gpt-4-turbo-preview",
     "gpt-4o",
 ]
+
+ACP_CONFIG = {
+    "default_temp": 0.7,
+    "default_frequency_penalty": 0.0,
+    "default_presence_penalty": 0.0,
+    "default_top_p": 0.0,
+    "default_max_tokens": 4000,
+    "default_llm_model": "claude-3-haiku-20240307",
+}
+
+CLASS_LEVELS_SINGAPORE = [
+    "Primary 1",
+    "Primary 2",
+    "Primary 3",
+    "Primary 4",
+    "Primary 5",
+    "Primary 6",
+    "Secondary 1",
+    "Secondary 2",
+    "Secondary 3",
+    "Secondary 4",
+    "Secondary 5",
+    "Junior College 1",
+    "Junior College 2",
+]
+
+SUBJECTS_SINGAPORE = [
+    "English Language",
+    "Chinese",
+    "Malay",
+    "Tamil",
+    "Mathematics",
+    "Science",
+    "Social Studies",
+    "Physical Education (PE)",
+    "Art",
+    "Music",
+    "Character and Citizenship Education (CCE)",
+    "Design and Technology",
+    "Food and Consumer Education (FCE)",
+    "Computer Studies",
+    "Additional Mathematics (Secondary)",
+    "Literature (Secondary)",
+    "History (Secondary)",
+    "Geography (Secondary)",
+    "Physics (Secondary)",
+    "Chemistry (Secondary)",
+    "Biology (Secondary)",
+    "Economics (JC)",
+    "Accounting (JC)",
+    "General Paper (JC)",
+    "Mathematics (JC)",
+    "Further Mathematics (JC)",
+    "Physics (JC)",
+    "Chemistry (JC)",
+    "Biology (JC)",
+    "History (JC)",
+    "Geography (JC)",
+    "Art (JC)",
+    "Music (JC)",
+    "Theatre Studies and Drama (JC)",
+]
+
+
+AC_MODEL_LIST = ["claude-3-haiku-20240307","gpt-3.5-turbo-0125", "gpt-4o", "gpt-3.5-turbo-1106", "claude-3-opus-20240229", "claude-3-sonnet-20240229"]

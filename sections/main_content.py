@@ -2,6 +2,7 @@ import streamlit as st
 from components.forms import login_form
 from functions.personal_dashboard import personal_dashboard
 from functions.ai_chatbot import ai_chatbot
+from functions.authoring_copilot import authoring_copilot
 from utils.app_utils import erase_all_session_state
 
 from dotenv import load_dotenv
@@ -11,7 +12,7 @@ load_dotenv()
 
 def load_app_main_content():
     if st.session_state.option == "Users login":
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3,4])
 
         placeholder = st.empty()
         with placeholder:
@@ -25,8 +26,7 @@ def load_app_main_content():
         ai_chatbot()
 
     elif st.session_state.option == "Authoring Copilot":
-        # Friday 7th Jun (6 hours)
-        st.write("Authoring Copilot")
+        authoring_copilot()
 
     elif st.session_state.option == "Short Answer FA":
         # Saturday 8th Jun (6 hours)
