@@ -89,16 +89,17 @@ def initialise_admin_account():
 	if check_condition_value(ALL_ORG, True):
 		return
 	else:
-		super_admin_exists = st.session_state.u_collection.find_one({"username": st.secrets["super_admin_username"]})
+		secret_retriever = SecretsRetriever()
+		super_admin_exists = st.session_state.u_collection.find_one({"username": secret_retriever("super_admin_username")})
 		if super_admin_exists:
 			# Update the condition value to True if the super admin exists
 			insert_condition_value(ALL_ORG, True)
 			return
 		else:
 			st.session_state.u_collection.insert_one({
-					"username": st.secrets["super_admin_username"],
+					"username": secret_retriever("super_admin_username"),
 					"user_id": 0,
-					"password": hash_password(st.secrets["super_admin_password"]), #hash_password(SUPER_PWD) 
+					"password": hash_password(secret_retriever("super_admin_username")), #hash_password(SUPER_PWD) 
 					"profile": SA,
 					"sch_name": ALL_ORG
 				})

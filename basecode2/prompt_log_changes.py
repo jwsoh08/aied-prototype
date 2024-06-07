@@ -6,6 +6,8 @@ import ast
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 
+from utils.secrets_reader import SecretsRetriever
+
 class ConfigHandler:
 	def __init__(self):
 		self.config = configparser.ConfigParser()
@@ -335,7 +337,9 @@ def prompt_change(app_feature, prompt, changes):
 		MONGO_URI = st.secrets["MONGO"]["URI"]
 		DATABASE_NAME = st.secrets["MONGO"]["DATABASE"]
 	else:
-		pass
+		secret_retriever = SecretsRetriever()
+		MONGO_URI = secret_retriever("mongo_uri")
+		DATABASE_NAME = secret_retriever("mongo_database")
 
 	client = MongoClient(MONGO_URI, tls=True,tlsAllowInvalidCertificates=True)
 	db = client[DATABASE_NAME]
@@ -382,7 +386,9 @@ def check_if_empty():
 		MONGO_URI = st.secrets["MONGO"]["URI"]
 		DATABASE_NAME = st.secrets["MONGO"]["DATABASE"]
 	else:
-		pass
+		secret_retriever = SecretsRetriever()
+		MONGO_URI = secret_retriever("mongo_uri")
+		DATABASE_NAME = secret_retriever("mongo_database")
 
 	client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
 	db = client[DATABASE_NAME]

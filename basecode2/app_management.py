@@ -8,6 +8,8 @@ from basecode2.prompt_log_changes import prompt_change, check_update_dates, get_
 from basecode2.sqlite_db import create_sql_db, insert_condition_value, check_condition_value, replace_condition_value
 from datetime import datetime
 
+from utils.secrets_reader import SecretsRetriever
+
 class ConfigHandler:
 	def __init__(self):
 		self.config = configparser.ConfigParser()
@@ -47,7 +49,9 @@ def initialize_app_settings():
 		MONGO_URI = st.secrets["MONGO"]["URI"]
 		DATABASE_NAME = st.secrets["MONGO"]["DATABASE"]
 	else:
-		pass
+		secret_retriever = SecretsRetriever()
+		MONGO_URI = secret_retriever("mongo_uri")
+		DATABASE_NAME = secret_retriever("mongo_database")
 
 	client = MongoClient(MONGO_URI, tls=True,tlsAllowInvalidCertificates=True)
 	db = client[DATABASE_NAME]
