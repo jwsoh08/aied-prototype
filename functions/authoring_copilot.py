@@ -20,343 +20,379 @@ from utils.secrets_reader import return_openai_key, return_claude_key
 
 
 def components_mass_call():
-	#select the model
-	model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
+    # select the model
+    model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
 
-	st.write("Mass API call JSON format: ")
-	st.write(":red[Ensure your CSV file has the following columns: subject, level, section_tags, activity_title, activity_notes, additional_prompts, duration, number_of_components, knowledge_base]")
-	if upload_csv():
-		if st.button("Cancel Upload"):
-			st.session_state.prompt_df = None
-		pass_test = check_column_values(st.session_state.prompt_df , ["subject", "level", "section_tags", "activity_title", "activity_notes", "additional_prompts", "duration", "number_of_components", "knowledge_base"])
-		if not pass_test:
-			st.error("Please upload a CSV file with the required columns or modify the dataframe")
-		if pass_test:
-			if model != "-":
-				batch_call(model)
+    st.write("Mass API call JSON format: ")
+    st.write(
+        ":red[Ensure your CSV file has the following columns: subject, level, section_tags, activity_title, activity_notes, additional_prompts, duration, number_of_components, knowledge_base]"
+    )
+    if upload_csv():
+        if st.button("Cancel Upload"):
+            st.session_state.prompt_df = None
+        pass_test = check_column_values(
+            st.session_state.prompt_df,
+            [
+                "subject",
+                "level",
+                "section_tags",
+                "activity_title",
+                "activity_notes",
+                "additional_prompts",
+                "duration",
+                "number_of_components",
+                "knowledge_base",
+            ],
+        )
+        if not pass_test:
+            st.error(
+                "Please upload a CSV file with the required columns or modify the dataframe"
+            )
+        if pass_test:
+            if model != "-":
+                batch_call(model)
 
 
 def process_multiple_choice_question(component):
-	mcq = component['multipleChoiceQuestion']
-	st.subheader("Multiple Choice Question:")
-	st.write(clean_html_tags(mcq.get('question', {}).get('richtext', 'No question provided')))
-	st.write(f"Duration: {mcq.get('duration')} seconds")
-	st.write(f"Total Marks: {mcq.get('totalMarks')}")
-	st.write("Answers:")
-	for answer in mcq.get('answers', []):
-		st.write(clean_html_tags(answer.get('richtext', 'No answer provided')))
-	st.write("Distractors:")
-	for distractor in mcq.get('distractors', []):
-		st.write(clean_html_tags(distractor.get('richtext', 'No distractor provided')))
+    mcq = component["multipleChoiceQuestion"]
+    st.subheader("Multiple Choice Question:")
+    st.write(
+        clean_html_tags(mcq.get("question", {}).get("richtext", "No question provided"))
+    )
+    st.write(f"Duration: {mcq.get('duration')} seconds")
+    st.write(f"Total Marks: {mcq.get('totalMarks')}")
+    st.write("Answers:")
+    for answer in mcq.get("answers", []):
+        st.write(clean_html_tags(answer.get("richtext", "No answer provided")))
+    st.write("Distractors:")
+    for distractor in mcq.get("distractors", []):
+        st.write(clean_html_tags(distractor.get("richtext", "No distractor provided")))
 
 
 def process_free_response_question(component):
-	frq = component['freeResponseQuestion']
-	st.subheader("Free Response Question:")
-	# Display the question, ensuring any HTML tags are cleaned.
-	st.write(clean_html_tags(frq.get('question', {}).get('richtext', 'No question provided')))
-	st.write(f"Duration: {frq.get('duration')} seconds")
-	st.write(f"Total Marks: {frq.get('totalMarks')}")
+    frq = component["freeResponseQuestion"]
+    st.subheader("Free Response Question:")
+    # Display the question, ensuring any HTML tags are cleaned.
+    st.write(
+        clean_html_tags(frq.get("question", {}).get("richtext", "No question provided"))
+    )
+    st.write(f"Duration: {frq.get('duration')} seconds")
+    st.write(f"Total Marks: {frq.get('totalMarks')}")
 
-	# Check if 'suggestedAnswer' exists in FRQ component
-	if 'suggestedAnswer' in frq:
-		st.write("Suggested Answer:")
-		suggested_answers = frq['suggestedAnswer']
-		# Check if suggested answers are a list of strings or contain more complex structures
-		if suggested_answers and isinstance(suggested_answers[0], dict):
-			# If the suggested answers are dictionaries, possibly with 'richtext'
-			for answer in suggested_answers:
-				st.write(clean_html_tags(answer.get('richtext', '')))
-		else:
-			# If the suggested answers are just strings
-			for answer in suggested_answers:
-				st.write(clean_html_tags(answer))
+    # Check if 'suggestedAnswer' exists in FRQ component
+    if "suggestedAnswer" in frq:
+        st.write("Suggested Answer:")
+        suggested_answers = frq["suggestedAnswer"]
+        # Check if suggested answers are a list of strings or contain more complex structures
+        if suggested_answers and isinstance(suggested_answers[0], dict):
+            # If the suggested answers are dictionaries, possibly with 'richtext'
+            for answer in suggested_answers:
+                st.write(clean_html_tags(answer.get("richtext", "")))
+        else:
+            # If the suggested answers are just strings
+            for answer in suggested_answers:
+                st.write(clean_html_tags(answer))
 
 
 def process_poll(component):
-	poll = component['poll']
-	st.subheader("Poll Question:")
-	st.write(clean_html_tags(poll.get('question', {}).get('richtext', 'No poll question provided')))
-	st.write("Options:")
-	for option in poll.get('options', []):
-		st.write(clean_html_tags(option.get('richtext', 'No option provided')))
+    poll = component["poll"]
+    st.subheader("Poll Question:")
+    st.write(
+        clean_html_tags(
+            poll.get("question", {}).get("richtext", "No poll question provided")
+        )
+    )
+    st.write("Options:")
+    for option in poll.get("options", []):
+        st.write(clean_html_tags(option.get("richtext", "No option provided")))
 
 
 def process_discussion_question(component):
-	dq = component['discussionQuestion']
-	st.subheader("Discussion Topic:")
-	st.write(dq.get('topic', 'No topic provided'))
-	st.subheader("Discussion Question:")
-	st.write(clean_html_tags(dq.get('question', {}).get('richtext', 'No discussion question provided')))
+    dq = component["discussionQuestion"]
+    st.subheader("Discussion Topic:")
+    st.write(dq.get("topic", "No topic provided"))
+    st.subheader("Discussion Question:")
+    st.write(
+        clean_html_tags(
+            dq.get("question", {}).get("richtext", "No discussion question provided")
+        )
+    )
 
 
 def display_lesson_from_json_claude(message_object, expected_component_count):
-	try:
-		# Parse the JSON string from the message content
-		# Assuming message_object.content is a list with at least one item, and that item has a 'text' attribute
-		if hasattr(message_object, 'content') and isinstance(message_object.content, list):
-			raw_json_string = message_object.content[0].text
-			raw_json_string = raw_json_string.replace('<recommendation>', '').replace('</recommendation>', '')
-		else:
-			raise ValueError("Invalid message format. Cannot find the JSON content.")
-		message_data = json.loads(raw_json_string)
-		
-		recommendations = message_data.get('recommendations', {})
-		
-		# Display Activity Recommendation
-		activity_recommendation = recommendations.get('activityRecommendation', {})
-		st.subheader("Activity Description:")
-		st.write(clean_html_tags(activity_recommendation.get('activityDescription', {}).get('richtext', 'No description provided')))
-		st.subheader("Activity Instruction:")
-		st.write(clean_html_tags(activity_recommendation.get('activityInstruction', {}).get('richtext', 'No instructions provided')))
-		
-		# Display Component Recommendations
-		component_recommendations = recommendations.get('componentRecommendations', [])
-		actual_component_count = len(component_recommendations)
-		if actual_component_count != expected_component_count:
-			st.warning(f"Expected {expected_component_count} components, but found {actual_component_count}.")
-		else:
-			st.success(f"Number of components matches the expected count: {expected_component_count}.")
-   
-		for component in component_recommendations:
-			if 'text' in component:
-				st.subheader("Text Content:")
-				st.write(clean_html_tags(component['text'].get('richtext', 'No text provided')))
-			elif 'multipleChoiceQuestion' in component:
-				process_multiple_choice_question(component)
-			elif 'freeResponseQuestion' in component:
-				process_free_response_question(component)
-			elif 'poll' in component:
-				process_poll(component)
-			elif 'discussionQuestion' in component:
-				process_discussion_question(component)
+    try:
+        # Parse the JSON string from the message content
+        # Assuming message_object.content is a list with at least one item, and that item has a 'text' attribute
+        if hasattr(message_object, "content") and isinstance(
+            message_object.content, list
+        ):
+            raw_json_string = message_object.content[0].text
+            raw_json_string = raw_json_string.replace("<recommendation>", "").replace(
+                "</recommendation>", ""
+            )
+        else:
+            raise ValueError("Invalid message format. Cannot find the JSON content.")
+        message_data = json.loads(raw_json_string)
 
-	except Exception as e:
-		st.error(f"Error processing the lesson content: {e}")
+        recommendations = message_data.get("recommendations", {})
+
+        # Display Activity Recommendation
+        activity_recommendation = recommendations.get("activityRecommendation", {})
+        st.subheader("Activity Description:")
+        st.write(
+            clean_html_tags(
+                activity_recommendation.get("activityDescription", {}).get(
+                    "richtext", "No description provided"
+                )
+            )
+        )
+        st.subheader("Activity Instruction:")
+        st.write(
+            clean_html_tags(
+                activity_recommendation.get("activityInstruction", {}).get(
+                    "richtext", "No instructions provided"
+                )
+            )
+        )
+
+        # Display Component Recommendations
+        component_recommendations = recommendations.get("componentRecommendations", [])
+        actual_component_count = len(component_recommendations)
+        if actual_component_count != expected_component_count:
+            st.warning(
+                f"Expected {expected_component_count} components, but found {actual_component_count}."
+            )
+        else:
+            st.success(
+                f"Number of components matches the expected count: {expected_component_count}."
+            )
+
+        for component in component_recommendations:
+            if "text" in component:
+                st.subheader("Text Content:")
+                st.write(
+                    clean_html_tags(
+                        component["text"].get("richtext", "No text provided")
+                    )
+                )
+            elif "multipleChoiceQuestion" in component:
+                process_multiple_choice_question(component)
+            elif "freeResponseQuestion" in component:
+                process_free_response_question(component)
+            elif "poll" in component:
+                process_poll(component)
+            elif "discussionQuestion" in component:
+                process_discussion_question(component)
+
+    except Exception as e:
+        st.error(f"Error processing the lesson content: {e}")
 
 
 def generate_component_openai(model):
-	if 'openai_prompt' not in st.session_state:
-		st.session_state.openai_prompt = ""
+    if "openai_prompt" not in st.session_state:
+        st.session_state.openai_prompt = ""
 
-	# Template with placeholders
-	template =  ("As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
-				"The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
-				"You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
-				"Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
-				"There are only five types of components:\n"
-				"1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
-				"2. A multiple choice question with four options of which only one option is correct\n"
-				"3. A free response question which includes suggested answers\n"
-				"4. A poll which is a multiple choice question with four options but no correct answer\n"
-				"5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
-				"Your output should be a maximum of twelve components.\n"
-				"The first component is an activity description that describes the activity to the student.\n"
-				"The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
-				"For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
-				"For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
-				"For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
-				)
-	
-	prompt_options = {
-		"AC OpenAI Component Production Prompt": st.session_state.ac_openai_component_production_prompt,
-		"AC OpenAI Component Development Prompt 1": st.session_state.ac_openai_component_development_prompt_1,
-		"AC OpenAI Component Development Prompt 2": st.session_state.ac_openai_component_development_prompt_2,
-	}
+    # Template with placeholders
+    template = (
+        "As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
+        "The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
+        "You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
+        "Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
+        "There are only five types of components:\n"
+        "1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
+        "2. A multiple choice question with four options of which only one option is correct\n"
+        "3. A free response question which includes suggested answers\n"
+        "4. A poll which is a multiple choice question with four options but no correct answer\n"
+        "5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
+        "Your output should be a maximum of twelve components.\n"
+        "The first component is an activity description that describes the activity to the student.\n"
+        "The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
+        "For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
+        "For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
+        "For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
+    )
 
-	# Let the user select a prompt by name
-	selected_prompt_name = st.selectbox("Select your prompt design:", tuple(prompt_options.keys()))
+    prompt_options = {
+        "AC OpenAI Component Production Prompt": st.session_state.ac_openai_component_production_prompt,
+        "AC OpenAI Component Development Prompt 1": st.session_state.ac_openai_component_development_prompt_1,
+        "AC OpenAI Component Development Prompt 2": st.session_state.ac_openai_component_development_prompt_2,
+    }
 
-	# Set the select_prompt to the corresponding session state value based on the selected name
-	select_prompt = prompt_options[selected_prompt_name]
- 
-	if st.checkbox("Load Sample Prompt"):
-		select_prompt = template
-	# Display the selected prompt
-	st.write(select_prompt)
+    # Let the user select a prompt by name
+    selected_prompt_name = st.selectbox(
+        "Select your prompt design:", tuple(prompt_options.keys())
+    )
+
+    # Set the select_prompt to the corresponding session state value based on the selected name
+    select_prompt = prompt_options[selected_prompt_name]
+
+    if st.checkbox("Load Sample Prompt"):
+        select_prompt = template
+    # Display the selected prompt
+    st.write(select_prompt)
 
 
 def generate_component_claude(model):
-	if "claude_prompt" not in st.session_state:
-		st.session_state.claude_prompt = ""
-	# Constructing the prompt from the session state
-	template = ("As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
-				"The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
-				"You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
-				"Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
-				"There are only five types of components:\n"
-				"1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
-				"2. A multiple choice question with four options of which only one option is correct\n"
-				"3. A free response question which includes suggested answers\n"
-				"4. A poll which is a multiple choice question with four options but no correct answer\n"
-				"5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
-				"Your output should be a maximum of twelve components.\n"
-				"The first component is an activity description that describes the activity to the student.\n"
-				"The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
-				"For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
-				"For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
-				"For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
-				)
- 
-	prompt_options = {
-			"AC Claude Component Production Prompt": st.session_state.ac_claude_component_production_prompt,
-			"AC Claude Component Development Prompt 1": st.session_state.ac_claude_component_development_prompt_1,
-			"AC Claude Component Development Prompt 2": st.session_state.ac_claude_component_development_prompt_2,
-		}
+    if "claude_prompt" not in st.session_state:
+        st.session_state.claude_prompt = ""
+    # Constructing the prompt from the session state
+    template = (
+        "As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
+        "The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
+        "You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
+        "Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
+        "There are only five types of components:\n"
+        "1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
+        "2. A multiple choice question with four options of which only one option is correct\n"
+        "3. A free response question which includes suggested answers\n"
+        "4. A poll which is a multiple choice question with four options but no correct answer\n"
+        "5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
+        "Your output should be a maximum of twelve components.\n"
+        "The first component is an activity description that describes the activity to the student.\n"
+        "The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
+        "For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
+        "For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
+        "For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
+    )
 
-	# Let the user select a prompt by name
-	selected_prompt_name = st.selectbox("Select your prompt design:", tuple(prompt_options.keys()))
+    prompt_options = {
+        "AC Claude Component Production Prompt": st.session_state.ac_claude_component_production_prompt,
+        "AC Claude Component Development Prompt 1": st.session_state.ac_claude_component_development_prompt_1,
+        "AC Claude Component Development Prompt 2": st.session_state.ac_claude_component_development_prompt_2,
+    }
 
-	# Set the select_prompt to the corresponding session state value based on the selected name
-	select_prompt = prompt_options[selected_prompt_name]
- 
-	if st.checkbox("Load Claude Sample Prompt", key="c_prompt"):
-		select_prompt = template
+    # Let the user select a prompt by name
+    selected_prompt_name = st.selectbox(
+        "Select your prompt design:", tuple(prompt_options.keys())
+    )
 
-	# Display the selected prompt
-	st.write(select_prompt)
-	
-	
-	formatted_prompt = template.format(
-		Level=st.session_state.get('level', 'Level'),
-		Subject=st.session_state.get('subject', 'Subject'),
-		Section_Tags=st.session_state.get('section_tags', 'Section_Tags'),
-		Activity_Title=st.session_state.get('activity_title', 'Activity_Title'),  # Changed key to Activity_Title
-		Activity_Notes=st.session_state.get('activity_notes', 'Activity_Notes'),  # Changed key to Activity_Notes
-		Additional_Prompts=st.session_state.get('component_additional_prompts', 'Additional_Prompts'),
-		Duration=st.session_state.get('activity_duration', 'Duration'),
-		Number_of_Components=st.session_state.get('number_of_components', 'Number_of_Components'),  # Changed key to Number_of_Components
-		Knowledge_Base=st.session_state.get('knowledge_base', 'Knowledge_Base')
-	)
+    # Set the select_prompt to the corresponding session state value based on the selected name
+    select_prompt = prompt_options[selected_prompt_name]
 
-	# Here, you would call the Claude API with the formatted prompt
-	# For simulation, let's format a JSON response as described and store it in session state
-	example_response = {
-		"recommendations": {
-			"activityRecommendation": {
-				"activityDescription": {
-					"richtext": "<p>Description</p>"
-				},
-				"activityInstruction": {
-					"richtext": "<p>Instruction</p>"
-				}
-			},
-			"componentRecommendations": [
-				{
-					"text": {
-						"richtext": "<p>text content</p>"
-					}
-				},
-				{
-					"multipleChoiceQuestion": {
-						"question": {
-							"richtext": "<p>question content</p>"
-						},
-						"answers": [
-							{
-								"richtext": "<p>answer</p>"
-							}
-						],
-						"distractors": [
-							{
-								"richtext": "<p>distractor 1</p>"
-							},
-							{
-								"richtext": "<p>distractor 2</p>"
-							},
-							{
-								"richtext": "<p>distractor 3</p>"
-							}
-						],
-						"duration": 60,
-						"totalMarks": 1
-					}
-				},
-				{
-					"freeResponseQuestion": {
-						"question": {
-							"richtext": "<p>question content</p>"
-						},
-						"totalMarks": 5,
-						"duration": 120
-					}
-				},
-				{
-					"poll": {
-						"question": {
-							"richtext": "<p>poll content</p>"
-						},
-						"options": [
-							{
-								"richtext": "<p>option 1</p>"
-							},
-							{
-								"richtext": "<p>option 2</p>"
-							},
-							{
-								"richtext": "<p>option 3</p>"
-							}
-						]
-					}
-				},
-				{
-					"discussionQuestion": {
-						"topic": "disucssion topic",
-						"question": {
-							"richtext": "<p>discussion content</p>"
-						}
-					}
-				}
-			]
-		}
-	}
+    if st.checkbox("Load Claude Sample Prompt", key="c_prompt"):
+        select_prompt = template
 
+    # Display the selected prompt
+    st.write(select_prompt)
 
-	
-	
-	
-	editable_prompt = st.text_area("Edit the prompt before sending:", value=formatted_prompt, height=300)
+    formatted_prompt = template.format(
+        Level=st.session_state.get("level", "Level"),
+        Subject=st.session_state.get("subject", "Subject"),
+        Section_Tags=st.session_state.get("section_tags", "Section_Tags"),
+        Activity_Title=st.session_state.get(
+            "activity_title", "Activity_Title"
+        ),  # Changed key to Activity_Title
+        Activity_Notes=st.session_state.get(
+            "activity_notes", "Activity_Notes"
+        ),  # Changed key to Activity_Notes
+        Additional_Prompts=st.session_state.get(
+            "component_additional_prompts", "Additional_Prompts"
+        ),
+        Duration=st.session_state.get("activity_duration", "Duration"),
+        Number_of_Components=st.session_state.get(
+            "number_of_components", "Number_of_Components"
+        ),  # Changed key to Number_of_Components
+        Knowledge_Base=st.session_state.get("knowledge_base", "Knowledge_Base"),
+    )
 
+    # Here, you would call the Claude API with the formatted prompt
+    # For simulation, let's format a JSON response as described and store it in session state
+    example_response = {
+        "recommendations": {
+            "activityRecommendation": {
+                "activityDescription": {"richtext": "<p>Description</p>"},
+                "activityInstruction": {"richtext": "<p>Instruction</p>"},
+            },
+            "componentRecommendations": [
+                {"text": {"richtext": "<p>text content</p>"}},
+                {
+                    "multipleChoiceQuestion": {
+                        "question": {"richtext": "<p>question content</p>"},
+                        "answers": [{"richtext": "<p>answer</p>"}],
+                        "distractors": [
+                            {"richtext": "<p>distractor 1</p>"},
+                            {"richtext": "<p>distractor 2</p>"},
+                            {"richtext": "<p>distractor 3</p>"},
+                        ],
+                        "duration": 60,
+                        "totalMarks": 1,
+                    }
+                },
+                {
+                    "freeResponseQuestion": {
+                        "question": {"richtext": "<p>question content</p>"},
+                        "totalMarks": 5,
+                        "duration": 120,
+                    }
+                },
+                {
+                    "poll": {
+                        "question": {"richtext": "<p>poll content</p>"},
+                        "options": [
+                            {"richtext": "<p>option 1</p>"},
+                            {"richtext": "<p>option 2</p>"},
+                            {"richtext": "<p>option 3</p>"},
+                        ],
+                    }
+                },
+                {
+                    "discussionQuestion": {
+                        "topic": "disucssion topic",
+                        "question": {"richtext": "<p>discussion content</p>"},
+                    }
+                },
+            ],
+        }
+    }
 
-	# Convert the example response to JSON string for demonstration
-	#json_response = json.dumps(example_response, indent=4)
-	
-	json_response = st.session_state.ac_claude_component_example_prompt
-  
-	if st.checkbox("Load Claude Example JSON", key="claude_tools"):
-		json_response = json.dumps(example_response, indent=4)
- 
-	# Display the formatted prompt in Streamlit for demonstration purposes
-	appended_prompt = editable_prompt + "  Return the response in JSON format. Here is an example of ideal formatting for the JSON recommendation: \n" + json_response
+    editable_prompt = st.text_area(
+        "Edit the prompt before sending:", value=formatted_prompt, height=300
+    )
 
-	st.write(f":blue[Full claude API prompt]:")
-	st.write(f"{appended_prompt}")
-	# Normally, you would replace the example_response with the actual API response
-	# For demonstration, we'll update the session state with the example JSON response
-	if st.button("Generate Activities"):
-		start_time = datetime.now() 
-		with st.status("Generating Activities..."):
-			st.session_state.claude_prompt = appended_prompt
-			client = anthropic.Anthropic(api_key=return_claude_key())
-			message = client.messages.create(
-			model=model,
-			max_tokens=st.session_state.default_max_tokens,
-			top_p=st.session_state.default_top_p,
-			temperature=st.session_state.default_temp,
-			messages=[
-				{
-					"role": "user", 
-					"content": appended_prompt
-				},
-			]
-			) #.content[0].text
-			st.write(message) #break it down into parts
-			display_lesson_from_json_claude(message, st.session_state.number_of_components)
-			end_time = datetime.now()  # Capture the end time after processing
-			duration = (end_time - start_time).total_seconds()  # Calculate duration in seconds
-			st.write(f"Processing time: {duration} seconds")
-	
-	# Display the JSON formatted response in Streamlit for demonstration purposes
+    # Convert the example response to JSON string for demonstration
+    # json_response = json.dumps(example_response, indent=4)
+
+    json_response = st.session_state.ac_claude_component_example_prompt
+
+    if st.checkbox("Load Claude Example JSON", key="claude_tools"):
+        json_response = json.dumps(example_response, indent=4)
+
+    # Display the formatted prompt in Streamlit for demonstration purposes
+    appended_prompt = (
+        editable_prompt
+        + "  Return the response in JSON format. Here is an example of ideal formatting for the JSON recommendation: \n"
+        + json_response
+    )
+
+    st.write(f":blue[Full claude API prompt]:")
+    st.write(f"{appended_prompt}")
+    # Normally, you would replace the example_response with the actual API response
+    # For demonstration, we'll update the session state with the example JSON response
+    if st.button("Generate Activities"):
+        start_time = datetime.now()
+        with st.status("Generating Activities..."):
+            st.session_state.claude_prompt = appended_prompt
+            client = anthropic.Anthropic(api_key=return_claude_key())
+            message = client.messages.create(
+                model=model,
+                max_tokens=st.session_state.default_max_tokens,
+                top_p=st.session_state.default_top_p,
+                temperature=st.session_state.default_temp,
+                messages=[
+                    {"role": "user", "content": appended_prompt},
+                ],
+            )  # .content[0].text
+            st.write(message)  # break it down into parts
+            display_lesson_from_json_claude(
+                message, st.session_state.number_of_components
+            )
+            end_time = datetime.now()  # Capture the end time after processing
+            duration = (
+                end_time - start_time
+            ).total_seconds()  # Calculate duration in seconds
+            st.write(f"Processing time: {duration} seconds")
+
+    # Display the JSON formatted response in Streamlit for demonstration purposes
 
 
 def components_single_call():
@@ -395,10 +431,14 @@ Incorporating technology and real-world examples into the curriculum enhances le
     c1, c2, c3 = st.columns([1, 1, 3])
     st.write("### Components generation")
     with c1:
-        level = st.selectbox("Select your level:", options=CLASS_LEVELS_SINGAPORE, index=0)
+        level = st.selectbox(
+            "Select your level:", options=CLASS_LEVELS_SINGAPORE, index=0
+        )
         st.session_state.level = level
     with c2:
-        subject = st.selectbox("Select your subject:", options=SUBJECTS_SINGAPORE, index=0)
+        subject = st.selectbox(
+            "Select your subject:", options=SUBJECTS_SINGAPORE, index=0
+        )
         st.session_state.subject = subject
     # need to change below
     st.session_state.section_tags = st.text_area(
@@ -535,6 +575,132 @@ def display_lesson_from_json_openai(chat_completion_object, expected_sections_co
 
     except Exception as e:
         st.error(f"Error processing the lesson content: {str(e)}")
+
+
+def generate_activity_claude(model):
+    if "claude_prompt" not in st.session_state:
+        st.session_state.claude_prompt = ""
+    # Constructing the prompt from the session state
+    template = (
+        "As an experienced {Level} {Subject} teacher, design a segment of a lesson that helps students achieve the following learning outcomes:  {Section_Tags}  The title of the section is {Section_Title} and brief notes are {Section_Notes}."
+        "You should also consider: {Additional_Prompts}.  Students are expected to spend {Duration} on this segment. Suggest a mix of {Number_of_Activities} activities or quizzes for this segment. The activities and quizzes should help students understand the information in {Knowledge_Base}."
+        "A quiz is a series of questions that students need to attempt, while an activity comprises of text, questions and other tasks for a student to complete.  Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml."
+        "Your first output is a section description that describes the section to the student, the section description should be at most five sentences long.  Your next outputs should be a series of activities or quizzes. For each output,"
+        "identity whether it is an activity or quiz and then provide (i) a title, (ii) other useful notes about the activity or quiz and details about how a teacher might enact it, (iii) suggested time needed for a student to complete the activity or quiz."
+    )
+
+    prompt_options = {
+        "AC Claude Activity Production Prompt": st.session_state.ac_claude_activity_production_prompt,
+        "AC Claude Activity Development Prompt 1": st.session_state.ac_claude_activity_development_prompt_1,
+        "AC Claude Activity Development Prompt 2": st.session_state.ac_claude_activity_development_prompt_2,
+    }
+
+    # Let the user select a prompt by name
+    selected_prompt_name = st.selectbox(
+        "Select your prompt design:", tuple(prompt_options.keys())
+    )
+
+    # Set the select_prompt to the corresponding session state value based on the selected name
+    select_prompt = prompt_options[selected_prompt_name]
+
+    if st.checkbox("Load Claude Sample Prompt", key="c_prompt"):
+        select_prompt = template
+
+    # Display the selected prompt
+    st.write(select_prompt)
+
+    formatted_prompt = select_prompt.format(
+        Level=st.session_state.get("level", "Level"),
+        Subject=st.session_state.get("subject", "Subject"),
+        Section_Tags=st.session_state.get("section_tags", "Section_Tags"),
+        Section_Title=st.session_state.get("section_title", "Section_Title"),
+        Section_Notes=st.session_state.get("section_notes", "Section_Notes"),
+        Additional_Prompts=st.session_state.get(
+            "activity_additional_prompts", "Additional_Prompts"
+        ),
+        Duration=st.session_state.get("section_duration", "Duration"),
+        Number_of_Activities=st.session_state.get(
+            "number_of_activities", "Number_of_Activities"
+        ),
+        Knowledge_Base=st.session_state.get("knowledge_base", "Knowledge_Base"),
+    )
+
+    # Here, you would call the Claude API with the formatted prompt
+    # For simulation, let's format a JSON response as described and store it in session state
+    example_response = {
+        "recommendations": {
+            "sectionDescription": {
+                "richtext": "<p>Introduction: In this section, we will explore the concept of tectonic plates and their global distribution. </p>"
+            },
+            "activityRecommendations": [
+                {
+                    "activityType": "activity",
+                    "activityTitle": "Plate Tectonics Map Exploration",
+                    "activityNotes": {
+                        "richtext": "<p>Objective: Explore the global distribution of tectonic plates and identify different plate boundaries.</p>"
+                    },
+                    "activityDuration": 900,
+                },
+                {
+                    "activityType": "quiz",
+                    "activityTitle": "Plate Boundaries Quiz",
+                    "activityNotes": {
+                        "richtext": "<p>Objective: Test your knowledge on different types of plate boundaries.</p>"
+                    },
+                    "activityDuration": 300,
+                },
+            ],
+        }
+    }
+
+    editable_prompt = st.text_area(
+        "Edit the prompt before sending:", value=formatted_prompt, height=300
+    )
+
+    # Convert the example response to JSON string for demonstration
+    # json_response = json.dumps(example_response, indent=4)
+
+    json_response = st.session_state.ac_claude_activity_example_prompt
+
+    if st.checkbox("Load Claude Example JSON", key="claude_tools"):
+        json_response = json.dumps(example_response, indent=4)
+
+    # Display the formatted prompt in Streamlit for demonstration purposes
+    appended_prompt = (
+        editable_prompt
+        + "  Return the response in JSON format. Here is an example of ideal formatting for the JSON recommendation: \n"
+        + json_response
+    )
+
+    st.write(f":blue[Full claude API prompt]:")
+    st.write(f"{appended_prompt}")
+    # Normally, you would replace the example_response with the actual API response
+    # For demonstration, we'll update the session state with the example JSON response
+    if st.button("Generate Activities"):
+        start_time = datetime.now()
+        with st.status("Generating Activities..."):
+            st.session_state.claude_prompt = appended_prompt
+            client = anthropic.Anthropic(api_key=return_claude_key())
+            message = client.messages.create(
+                model=model,
+                max_tokens=st.session_state.default_max_tokens,
+                top_p=st.session_state.default_top_p,
+                temperature=st.session_state.default_temp,
+                messages=[
+                    {"role": "user", "content": appended_prompt},
+                ],
+            )  # .content[0].text
+            st.write(message)  # break it down into parts
+            display_lesson_from_json_claude(
+                message, st.session_state.number_of_activities
+            )
+            end_time = datetime.now()  # Capture the end time after processing
+            duration = (
+                end_time - start_time
+            ).total_seconds()  # Calculate duration in seconds
+            st.write(f"Processing time: {duration} seconds")
+
+    # Display the JSON formatted response in Streamlit for demonstration purposes
 
 
 def generate_activity_openai(model):
