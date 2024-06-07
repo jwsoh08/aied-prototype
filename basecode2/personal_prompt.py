@@ -39,13 +39,9 @@ def initialize_app_settings():
     if "u_collection" not in st.session_state:
         st.session_state.u_collection = None
 
-    if "URI" in st.secrets["MONGO"]:
-        MONGO_URI = st.secrets["MONGO"]["URI"]
-        DATABASE_NAME = st.secrets["MONGO"]["DATABASE"]
-    else:
-        secret_retriever = SecretsRetriever()
-        MONGO_URI = secret_retriever.get_secret("mongo_uri")
-        DATABASE_NAME = secret_retriever.get_secret("mongo_database")
+    secret_retriever = SecretsRetriever()
+    MONGO_URI = secret_retriever.get_secret("mongo_uri")
+    DATABASE_NAME = secret_retriever.get_secret("mongo_database")
 
     client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
     db = client[DATABASE_NAME]
