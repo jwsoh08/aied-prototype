@@ -10,3 +10,20 @@ sqlite3.db
 secrets.toml
 .env
 
+*.csv
+References/
+database/
+database.zip
+audio_files/
+exports/
+archives/
+*.log
+*.db
+moe/
+cache/
+.DS_Store
+test.py
+prompt_analyser copy.py
+resources/nltk_data_dir/
+prompt_module_backup.py
+duck_db.py
