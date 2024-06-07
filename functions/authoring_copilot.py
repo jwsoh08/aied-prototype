@@ -19,60 +19,149 @@ from constants import SA, AD
 from utils.secrets_reader import return_openai_key, return_claude_key
 
 
-def display_lesson_from_json_openai(chat_completion_object, expected_sections_count):
+def components_mass_call():
+	#select the model
+	model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
+
+	st.write("Mass API call JSON format: ")
+	st.write(":red[Ensure your CSV file has the following columns: subject, level, section_tags, activity_title, activity_notes, additional_prompts, duration, number_of_components, knowledge_base]")
+	if upload_csv():
+		if st.button("Cancel Upload"):
+			st.session_state.prompt_df = None
+		pass_test = check_column_values(st.session_state.prompt_df , ["subject", "level", "section_tags", "activity_title", "activity_notes", "additional_prompts", "duration", "number_of_components", "knowledge_base"])
+		if not pass_test:
+			st.error("Please upload a CSV file with the required columns or modify the dataframe")
+		if pass_test:
+			if model != "-":
+				batch_call(model)
+
+
+def process_multiple_choice_question(component):
+	mcq = component['multipleChoiceQuestion']
+	st.subheader("Multiple Choice Question:")
+	st.write(clean_html_tags(mcq.get('question', {}).get('richtext', 'No question provided')))
+	st.write(f"Duration: {mcq.get('duration')} seconds")
+	st.write(f"Total Marks: {mcq.get('totalMarks')}")
+	st.write("Answers:")
+	for answer in mcq.get('answers', []):
+		st.write(clean_html_tags(answer.get('richtext', 'No answer provided')))
+	st.write("Distractors:")
+	for distractor in mcq.get('distractors', []):
+		st.write(clean_html_tags(distractor.get('richtext', 'No distractor provided')))
+
+
+def process_free_response_question(component):
+	frq = component['freeResponseQuestion']
+	st.subheader("Free Response Question:")
+	# Display the question, ensuring any HTML tags are cleaned.
+	st.write(clean_html_tags(frq.get('question', {}).get('richtext', 'No question provided')))
+	st.write(f"Duration: {frq.get('duration')} seconds")
+	st.write(f"Total Marks: {frq.get('totalMarks')}")
+
+	# Check if 'suggestedAnswer' exists in FRQ component
+	if 'suggestedAnswer' in frq:
+		st.write("Suggested Answer:")
+		suggested_answers = frq['suggestedAnswer']
+		# Check if suggested answers are a list of strings or contain more complex structures
+		if suggested_answers and isinstance(suggested_answers[0], dict):
+			# If the suggested answers are dictionaries, possibly with 'richtext'
+			for answer in suggested_answers:
+				st.write(clean_html_tags(answer.get('richtext', '')))
+		else:
+			# If the suggested answers are just strings
+			for answer in suggested_answers:
+				st.write(clean_html_tags(answer))
+
+
+def process_poll(component):
+	poll = component['poll']
+	st.subheader("Poll Question:")
+	st.write(clean_html_tags(poll.get('question', {}).get('richtext', 'No poll question provided')))
+	st.write("Options:")
+	for option in poll.get('options', []):
+		st.write(clean_html_tags(option.get('richtext', 'No option provided')))
+
+
+def process_discussion_question(component):
+	dq = component['discussionQuestion']
+	st.subheader("Discussion Topic:")
+	st.write(dq.get('topic', 'No topic provided'))
+	st.subheader("Discussion Question:")
+	st.write(clean_html_tags(dq.get('question', {}).get('richtext', 'No discussion question provided')))
+
+
+def display_lesson_from_json_claude(message_object, expected_component_count):
 	try:
-		# Extracting the JSON string from the provided structure
-		arguments_json = chat_completion_object.choices[0].message.tool_calls[0].function.arguments
+		# Parse the JSON string from the message content
+		# Assuming message_object.content is a list with at least one item, and that item has a 'text' attribute
+		if hasattr(message_object, 'content') and isinstance(message_object.content, list):
+			raw_json_string = message_object.content[0].text
+			raw_json_string = raw_json_string.replace('<recommendation>', '').replace('</recommendation>', '')
+		else:
+			raise ValueError("Invalid message format. Cannot find the JSON content.")
+		message_data = json.loads(raw_json_string)
 		
-		# Now, parse this JSON string to get the actual lesson content
-		lesson_content = json.loads(arguments_json)
+		recommendations = message_data.get('recommendations', {})
 		
-		# Since `recommendations` is correctly a dictionary, we directly access its elements
-		if 'sectionDescription' in lesson_content['recommendations']:
-			section_description = lesson_content['recommendations']['sectionDescription'].get('richtext', 'No section description provided.')
-			clean_section_description = clean_html_tags(section_description)
-			st.subheader("Section Description:")
-			st.write(clean_section_description)
+		# Display Activity Recommendation
+		activity_recommendation = recommendations.get('activityRecommendation', {})
+		st.subheader("Activity Description:")
+		st.write(clean_html_tags(activity_recommendation.get('activityDescription', {}).get('richtext', 'No description provided')))
+		st.subheader("Activity Instruction:")
+		st.write(clean_html_tags(activity_recommendation.get('activityInstruction', {}).get('richtext', 'No instructions provided')))
 		
-		if 'activityRecommendations' in lesson_content['recommendations']:
-			activity_recommendations = lesson_content['recommendations']['activityRecommendations']
-			actual_activities_count = len(activity_recommendations)
-			if actual_activities_count != expected_sections_count:
-				st.warning(f"Expected {expected_sections_count} activities, but found {actual_activities_count}. Please verify the lesson plan.")
-			else:
-				st.success(f"Number of activities matches the expected count: {expected_sections_count}.")
+		# Display Component Recommendations
+		component_recommendations = recommendations.get('componentRecommendations', [])
+		actual_component_count = len(component_recommendations)
+		if actual_component_count != expected_component_count:
+			st.warning(f"Expected {expected_component_count} components, but found {actual_component_count}.")
+		else:
+			st.success(f"Number of components matches the expected count: {expected_component_count}.")
+   
+		for component in component_recommendations:
+			if 'text' in component:
+				st.subheader("Text Content:")
+				st.write(clean_html_tags(component['text'].get('richtext', 'No text provided')))
+			elif 'multipleChoiceQuestion' in component:
+				process_multiple_choice_question(component)
+			elif 'freeResponseQuestion' in component:
+				process_free_response_question(component)
+			elif 'poll' in component:
+				process_poll(component)
+			elif 'discussionQuestion' in component:
+				process_discussion_question(component)
 
-			for index, activity in enumerate(activity_recommendations, start=1):
-				activity_type = activity.get('activityType', 'No activity type specified')
-				activity_title = activity.get('activityTitle', 'No title')
-				activity_notes = activity.get('activityNotes', {}).get('richtext', 'No notes provided.')
-				clean_activity_notes = clean_html_tags(activity_notes)
-				activity_duration_seconds = activity.get('activityDuration', {}).get('seconds', 0)
-				activity_duration = f"{activity_duration_seconds // 60} minutes"
-				
-				st.subheader(f"Activity {index}: {activity_title} ({activity_type})")
-				st.write(clean_activity_notes)
-				st.write(f"Duration: {activity_duration}")
-	
 	except Exception as e:
-		st.error(f"Error processing the lesson content: {str(e)}")
+		st.error(f"Error processing the lesson content: {e}")
 
 
-def generate_activity_openai(model):
+def generate_component_openai(model):
 	if 'openai_prompt' not in st.session_state:
 		st.session_state.openai_prompt = ""
 
 	# Template with placeholders
-	template = ("As an experienced {Level} {Subject} teacher, design a segment of a lesson that helps students achieve the following learning outcomes:  {Section_Tags}  The title of the section is {Section_Title} and brief notes are {Section_Notes}."
-			 "You should also consider: {Additional_Prompts}.  Students are expected to spend {Duration} on this segment. Suggest a mix of {Number_of_Activities} activities or quizzes for this segment. The activities and quizzes should help students understand the information in {Knowledge_Base}."
-			 "A quiz is a series of questions that students need to attempt, while an activity comprises of text, questions and other tasks for a student to complete.  Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml." 
-			 "Your first output is a section description that describes the section to the student, the section description should be at most five sentences long.  Your next outputs should be a series of activities or quizzes. For each output,"
-			 "identity whether it is an activity or quiz and then provide (i) a title, (ii) other useful notes about the activity or quiz and details about how a teacher might enact it, (iii) suggested time needed for a student to complete the activity or quiz.")
+	template =  ("As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
+				"The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
+				"You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
+				"Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
+				"There are only five types of components:\n"
+				"1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
+				"2. A multiple choice question with four options of which only one option is correct\n"
+				"3. A free response question which includes suggested answers\n"
+				"4. A poll which is a multiple choice question with four options but no correct answer\n"
+				"5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
+				"Your output should be a maximum of twelve components.\n"
+				"The first component is an activity description that describes the activity to the student.\n"
+				"The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
+				"For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
+				"For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
+				"For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
+				)
 	
 	prompt_options = {
-		"AC OpenAI Activity Production Prompt": st.session_state.ac_openai_activity_production_prompt,
-		"AC OpenAI Activity Development Prompt 1": st.session_state.ac_openai_activity_development_prompt_1,
-		"AC OpenAI Activity Development Prompt 2": st.session_state.ac_openai_activity_development_prompt_2,
+		"AC OpenAI Component Production Prompt": st.session_state.ac_openai_component_production_prompt,
+		"AC OpenAI Component Development Prompt 1": st.session_state.ac_openai_component_development_prompt_1,
+		"AC OpenAI Component Development Prompt 2": st.session_state.ac_openai_component_development_prompt_2,
 	}
 
 	# Let the user select a prompt by name
@@ -85,207 +174,656 @@ def generate_activity_openai(model):
 		select_prompt = template
 	# Display the selected prompt
 	st.write(select_prompt)
-	
-	
+
+
+def generate_component_claude(model):
+	if "claude_prompt" not in st.session_state:
+		st.session_state.claude_prompt = ""
+	# Constructing the prompt from the session state
+	template = ("As an experienced {Level} {Subject} teacher, design components for an activity or quiz that helps students achieve the following learning outcomes:\n {Section_Tags}\n  \n "
+				"The title of the activity is {Activity_Title} and brief notes are {Activity_Notes}.\n"
+				"You should also consider: {Additional_Prompts}.\n Students are expected to spend {Duration} on this activity or quiz."
+				"Suggest {Number_of_Components} components for this activity or quiz. The components should be based on the information in {Knowledge_Base}.\n"
+				"There are only five types of components:\n"
+				"1. A paragraph of text to help students understand the learning outcomes. The text can include explanations and examples to make it easier for students to understand the learning outcomes.\n"
+				"2. A multiple choice question with four options of which only one option is correct\n"
+				"3. A free response question which includes suggested answers\n"
+				"4. A poll which is a multiple choice question with four options but no correct answer\n"
+				"5. A discussion question which invites students to respond with their opinion\n Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml.\n"
+				"Your output should be a maximum of twelve components.\n"
+				"The first component is an activity description that describes the activity to the student.\n"
+				"The second component should be instructions to students on how to complete the activity.\n The rest of the components can be either text, multiple choice question, free response question, poll or discussion question.\n"
+				"For each paragraph of text, provide (i) the required text, which can include tables or lists.\n For each multiple choice question, provide (i) the question, (ii) one correct answer, (iii) feedback for why the correct answer answers the question (iv) three distractors which are incorrect answers, (v) feedback for each distractor explaining why the distractor is incorrect and what the correct answer should be (vi) suggested time needed for a student to complete the question.\n"
+				"For each free response question, provide (i) the question, (ii) total marks for the question, (iii) suggested answer, which is a comprehensive list of creditworthy points, where one point is to be awarded one mark, up to the total marks for the question, (iv) suggested time needed for a student to complete the question.\n"
+				"For each poll, provide (i) a question, (ii) at least two options in response to the question.\n For each discussion question, provide (i) the discussion topic, (ii) a free response question for students to respond to."
+				)
  
-	json_tools = tool_function()
-	tools = load_json(json_tools)
+	prompt_options = {
+			"AC Claude Component Production Prompt": st.session_state.ac_claude_component_production_prompt,
+			"AC Claude Component Development Prompt 1": st.session_state.ac_claude_component_development_prompt_1,
+			"AC Claude Component Development Prompt 2": st.session_state.ac_claude_component_development_prompt_2,
+		}
+
+	# Let the user select a prompt by name
+	selected_prompt_name = st.selectbox("Select your prompt design:", tuple(prompt_options.keys()))
+
+	# Set the select_prompt to the corresponding session state value based on the selected name
+	select_prompt = prompt_options[selected_prompt_name]
+ 
+	if st.checkbox("Load Claude Sample Prompt", key="c_prompt"):
+		select_prompt = template
+
+	# Display the selected prompt
+	st.write(select_prompt)
 	
-	# Formatting the template with actual session state values
-	formatted_prompt = select_prompt.format(
+	
+	formatted_prompt = template.format(
 		Level=st.session_state.get('level', 'Level'),
 		Subject=st.session_state.get('subject', 'Subject'),
 		Section_Tags=st.session_state.get('section_tags', 'Section_Tags'),
-		Section_Title=st.session_state.get('section_title', 'Section_Title'),
-		Section_Notes=st.session_state.get('section_notes', 'Section_Notes'),
-		Additional_Prompts=st.session_state.get('activity_additional_prompts', 'Additional_Prompts'),
-		Duration=st.session_state.get('section_duration', 'Duration'),
-		Number_of_Activities=st.session_state.get('number_of_activities', 'Number_of_Activities'),
+		Activity_Title=st.session_state.get('activity_title', 'Activity_Title'),  # Changed key to Activity_Title
+		Activity_Notes=st.session_state.get('activity_notes', 'Activity_Notes'),  # Changed key to Activity_Notes
+		Additional_Prompts=st.session_state.get('component_additional_prompts', 'Additional_Prompts'),
+		Duration=st.session_state.get('activity_duration', 'Duration'),
+		Number_of_Components=st.session_state.get('number_of_components', 'Number_of_Components'),  # Changed key to Number_of_Components
 		Knowledge_Base=st.session_state.get('knowledge_base', 'Knowledge_Base')
 	)
- 
-	st.session_state.openai_prompt = formatted_prompt
-	# Display the formatted prompt in Streamlit (for demonstration purposes)
-	edited_prompt = st.text_area("Generated Prompt", value=st.session_state.openai_prompt, height=300)
+
+	# Here, you would call the Claude API with the formatted prompt
+	# For simulation, let's format a JSON response as described and store it in session state
+	example_response = {
+		"recommendations": {
+			"activityRecommendation": {
+				"activityDescription": {
+					"richtext": "<p>Description</p>"
+				},
+				"activityInstruction": {
+					"richtext": "<p>Instruction</p>"
+				}
+			},
+			"componentRecommendations": [
+				{
+					"text": {
+						"richtext": "<p>text content</p>"
+					}
+				},
+				{
+					"multipleChoiceQuestion": {
+						"question": {
+							"richtext": "<p>question content</p>"
+						},
+						"answers": [
+							{
+								"richtext": "<p>answer</p>"
+							}
+						],
+						"distractors": [
+							{
+								"richtext": "<p>distractor 1</p>"
+							},
+							{
+								"richtext": "<p>distractor 2</p>"
+							},
+							{
+								"richtext": "<p>distractor 3</p>"
+							}
+						],
+						"duration": 60,
+						"totalMarks": 1
+					}
+				},
+				{
+					"freeResponseQuestion": {
+						"question": {
+							"richtext": "<p>question content</p>"
+						},
+						"totalMarks": 5,
+						"duration": 120
+					}
+				},
+				{
+					"poll": {
+						"question": {
+							"richtext": "<p>poll content</p>"
+						},
+						"options": [
+							{
+								"richtext": "<p>option 1</p>"
+							},
+							{
+								"richtext": "<p>option 2</p>"
+							},
+							{
+								"richtext": "<p>option 3</p>"
+							}
+						]
+					}
+				},
+				{
+					"discussionQuestion": {
+						"topic": "disucssion topic",
+						"question": {
+							"richtext": "<p>discussion content</p>"
+						}
+					}
+				}
+			]
+		}
+	}
+
+
 	
-	if st.button("Generate Actitivities"):
-		# Update the session state with the formatted prompt
-		start_time = datetime.now()
-		st.session_state.openai_prompt = edited_prompt
-		client = OpenAI(
-		# defaults to os.environ.get("OPENAI_API_KEY")
-		api_key=return_openai_key()	
-		)
-		#openai.api_key = return_openai_key()
-		#os.environ["OPENAI_API_KEY"] = return_openai_key()
-		#st.title("Api Call with JSON")
-		#MODEL = "gpt-3.5-turbo"
-		with st.status("Calling the OpenAI API..."):
-			response = client.chat.completions.create(
-				model=model,
-				messages=[
-				#{"role": "system", "content": "You are a helpful assistant designed to output JSON."}, #system prompt
-				{"role": "user", "content": edited_prompt},
-				],
-				#response_format={ "type": "json_object" }, #response format
-				tools = tools,
-				tool_choice = {"type": "function", "function": {"name": "get_new_activity_recommendations"}},
-				temperature=st.session_state.default_temp, #settings option
-				presence_penalty=st.session_state.default_presence_penalty, #settings option
-				frequency_penalty=st.session_state.default_frequency_penalty, #settings option
-				top_p = st.session_state.default_top_p, #settings option
-				max_tokens=st.session_state.default_max_tokens, #settings option
-			)
-			st.markdown("**This is the extracted response:**")
-			st.write(response)
-			display_lesson_from_json_openai(response, st.session_state.number_of_activities)
+	
+	
+	editable_prompt = st.text_area("Edit the prompt before sending:", value=formatted_prompt, height=300)
+
+
+	# Convert the example response to JSON string for demonstration
+	#json_response = json.dumps(example_response, indent=4)
+	
+	json_response = st.session_state.ac_claude_component_example_prompt
+  
+	if st.checkbox("Load Claude Example JSON", key="claude_tools"):
+		json_response = json.dumps(example_response, indent=4)
+ 
+	# Display the formatted prompt in Streamlit for demonstration purposes
+	appended_prompt = editable_prompt + "  Return the response in JSON format. Here is an example of ideal formatting for the JSON recommendation: \n" + json_response
+
+	st.write(f":blue[Full claude API prompt]:")
+	st.write(f"{appended_prompt}")
+	# Normally, you would replace the example_response with the actual API response
+	# For demonstration, we'll update the session state with the example JSON response
+	if st.button("Generate Activities"):
+		start_time = datetime.now() 
+		with st.status("Generating Activities..."):
+			st.session_state.claude_prompt = appended_prompt
+			client = anthropic.Anthropic(api_key=return_claude_key())
+			message = client.messages.create(
+			model=model,
+			max_tokens=st.session_state.default_max_tokens,
+			top_p=st.session_state.default_top_p,
+			temperature=st.session_state.default_temp,
+			messages=[
+				{
+					"role": "user", 
+					"content": appended_prompt
+				},
+			]
+			) #.content[0].text
+			st.write(message) #break it down into parts
+			display_lesson_from_json_claude(message, st.session_state.number_of_components)
 			end_time = datetime.now()  # Capture the end time after processing
 			duration = (end_time - start_time).total_seconds()  # Calculate duration in seconds
 			st.write(f"Processing time: {duration} seconds")
+	
+	# Display the JSON formatted response in Streamlit for demonstration purposes
 
 
-def get_and_display_duration():
-	# Default duration values
-	#default_hours, default_minutes, default_seconds = DURATION.split()
-
-	# Splitting the default duration values to extract integers
-	default_hours = 1 # Extracts '1' from '1 hours'
-	default_minutes = 30  # Extracts '30' from '30 minutes'
-	default_seconds = 0  # Extracts '30' from '30 seconds'
-
-	d1, d2, d3, d4 = st.columns([1, 1, 1, 5])
-	# User inputs for hours, minutes, seconds
-	with d1:
-		hours = st.number_input("Hours:", min_value=0, value=default_hours, format="%d")
-	with d2:
-		minutes = st.number_input("Minutes:", min_value=0, value=default_minutes, max_value=59, format="%d")
-	with d3:
-		seconds = st.number_input("Seconds:", min_value=0, value=default_seconds, max_value=59, format="%d")
-	with d4:
-		pass
- 
-	# Formatting the duration string
-	duration_formatted = f"{hours} hours {minutes} minutes {seconds} seconds"
-
-	# Storing the formatted duration in session state
-	st.session_state.section_duration = duration_formatted
-
-	# Optionally, display the formatted string
-	st.write("Duration:", duration_formatted)
-
-
-def activities_single_call():
-	# Initialize default values if not already set
-	if 'level' not in st.session_state:
-		st.session_state.level = CLASS_LEVELS_SINGAPORE[0]
-	if 'subject' not in st.session_state:
-		st.session_state.subject = SUBJECTS_SINGAPORE[0]
-	# Set default values for SECTION details if not already set
-	if 'section_tags' not in st.session_state:
-		st.session_state.section_tags = 'Algebra, Geometry'
-	if 'section_title' not in st.session_state:
-		st.session_state.section_title = 'Introduction to Algebra'
-	if 'section_notes' not in st.session_state:
-		st.session_state.section_notes = """Begin the lesson by introducing the concept of algebra and its importance in mathematics. 
-Explain the basic components of algebraic expressions, such as variables, constants, and operations. 
-Use simple examples to demonstrate how to write and manipulate algebraic expressions. 
-Encourage students to participate in the discussion by asking them to provide their own examples."""
-	if 'section_duration' not in st.session_state:
-		st.session_state.section_duration = "1 hours 30 minutes 30 seconds"
-	if 'activity_additional_prompts' not in st.session_state:
-		st.session_state.activity_additional_prompts = 'Include hands-on activities and real-life examples'
-	if 'number_of_activities' not in st.session_state:
-		st.session_state.number_of_activities = 3
-	if 'knowledge_base' not in st.session_state:
-		st.session_state.knowledge_base = """
+def components_single_call():
+    # Initialize default values if not already set
+    if "level" not in st.session_state:
+        st.session_state.level = CLASS_LEVELS_SINGAPORE[0]
+    if "subject" not in st.session_state:
+        st.session_state.subject = SUBJECTS_SINGAPORE[0]
+    # Set default values for SECTION details if not already set
+    if "section_tags" not in st.session_state:
+        st.session_state.section_tags = "Algebra, Geometry"
+    if "activity_title" not in st.session_state:
+        st.session_state.activity_title = "How to calculate critical angle"
+    if "activity_notes" not in st.session_state:
+        st.session_state.activity_notes = """Introduce the concept of critical angle in the content of total internal reflection. 
+Use visuals such as simulations and ray diagram to illustrate how to derive the critical angle from first principles using Snell’s Law."""
+    if "activity_duration" not in st.session_state:
+        st.session_state.activity_duration = "1 hours 30 minutes 30 seconds"
+    if "component_additional_prompts" not in st.session_state:
+        st.session_state.component_additional_prompts = """For example, students should have the opportunity to try a hands-on activity to learn this concept. 
+The hands-on activity should get students to be able to derive the formula to calculate the critical angle from first principles. 
+Scaffolded activities can first allow students to fill in the blanks to demonstrate their understanding of how apply Snell’s Law to calculate critical angle, 
+second get students to calculate critical angle as a free response question without scaffolds. Allow students to use their calculator on their own"""
+    if "number_of_components" not in st.session_state:
+        st.session_state.number_of_components = 3
+    if "knowledge_base" not in st.session_state:
+        st.session_state.knowledge_base = """
+Snell’s Law, critical angle
 Educational content is designed to foster critical thinking, problem-solving skills, and a deep understanding of subject matter. 
 Effective lesson plans engage students through interactive activities, discussions, and practical applications of theoretical concepts. 
 Assessment strategies should be varied and aligned with learning outcomes to accurately measure student understanding and progress. 
 Incorporating technology and real-world examples into the curriculum enhances learning experiences and prepares students for future challenges.
 """
-	
 
-	# UI for section generation
-	c1, c2, c3 = st.columns([1, 1, 3])
-	st.write("### Activities generation")
-	with c1:
-		level = st.selectbox("Select your level:", options=CLASS_LEVELS_SINGAPORE, index=0)
-		st.session_state.level = level
-	with c2:
-		subject = st.selectbox("Select your subject:", options=SUBJECTS_SINGAPORE, index=0)
-		st.session_state.subject = subject
-   
-	section_tags = st.text_area("Enter Section Tags (Learning Objectives):", value=st.session_state.section_tags, height=150, max_chars=10000)
-	st.session_state.section_tags = section_tags
-	section_title = st.text_area("Section Title:", value=st.session_state.section_title, height=150, max_chars=10000)
-	st.session_state.section_title = section_title
-	section_notes = st.text_area("Section Notes:", value=st.session_state.section_notes, height=400, max_chars=30000)
-	st.session_state.section_notes = section_notes
-	additional_prompts = st.text_area("Additional Prompts/Instructions:", value=st.session_state.activity_additional_prompts, height=400, max_chars=30000)
-	st.session_state.activity_additional_prompts = additional_prompts
-	knowledge_base = st.text_area("Knowledge Base:", value=st.session_state.knowledge_base, height=400, max_chars=30000)
-	st.session_state.knowledge_base = knowledge_base
-	get_and_display_duration()
-	number_of_activities = st.number_input("Number of Activities:", min_value=1, value=st.session_state.number_of_activities)
-	st.session_state.number_of_activities = number_of_activities
- 
-	#select the model
-	model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
- 	# Button to confirm and potentially generate the section sections
-	if model != "-":
-		if model.startswith("gpt"):
-			generate_activity_openai(model)
-		elif model.startswith("claude"):
-			generate_activity_claude(model)
+    # UI for section generation
+    c1, c2, c3 = st.columns([1, 1, 3])
+    st.write("### Components generation")
+    with c1:
+        level = st.selectbox("Select your level:", options=CLASS_LEVELS_SINGAPORE, index=0)
+        st.session_state.level = level
+    with c2:
+        subject = st.selectbox("Select your subject:", options=SUBJECTS_SINGAPORE, index=0)
+        st.session_state.subject = subject
+    # need to change below
+    st.session_state.section_tags = st.text_area(
+        "Enter Section Tags (Learning Objectives):",
+        value=st.session_state.section_tags,
+        height=150,
+        max_chars=10000,
+    )
+    st.session_state.activity_title = st.text_area(
+        "Activity Title:",
+        value=st.session_state.activity_title,
+        max_chars=10000,
+        height=150,
+    )
+    st.session_state.activity_notes = st.text_area(
+        "Activity Notes:",
+        value=st.session_state.activity_notes,
+        height=400,
+        max_chars=30000,
+    )
+    st.session_state.component_additional_prompts = st.text_area(
+        "Additional Prompts/Instructions:",
+        value=st.session_state.component_additional_prompts,
+        height=400,
+        max_chars=30000,
+    )
+    st.session_state.knowledge_base = st.text_area(
+        "Knowledge Base:",
+        value=st.session_state.knowledge_base,
+        height=400,
+        max_chars=30000,
+    )
+    get_and_display_duration()
+    st.session_state.number_of_components = st.number_input(
+        "Number of Components:",
+        min_value=1,
+        value=st.session_state.number_of_components,
+    )
+
+    # select the model
+    model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
+    # Button to confirm and potentially generate the section sections
+    if model != "-":
+        if model.startswith("gpt"):
+            generate_component_openai(model)
+        elif model.startswith("claude"):
+            generate_component_claude(model)
+
+
+def activities_mass_call():
+    # select the model
+    model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
+
+    st.write("Mass API call JSON format: ")
+    st.write(
+        ":red[Ensure your CSV file has the following columns: subject, level, section_tags, section_title, section_notes, additional_prompts, duration, number_of_activities, knowledge_base]"
+    )
+    if upload_csv():
+        if st.button("Cancel Upload"):
+            st.session_state.prompt_df = None
+        pass_test = check_column_values(
+            st.session_state.prompt_df,
+            [
+                "subject",
+                "level",
+                "section_tags",
+                "section_title",
+                "section_notes",
+                "additional_prompts",
+                "duration",
+                "number_of_activities",
+                "knowledge_base",
+            ],
+        )
+        if not pass_test:
+            st.error(
+                "Please upload a CSV file with the required columns or modify the dataframe"
+            )
+        if pass_test:
+            if model != "-":
+                batch_call(model)
+
+
+def display_lesson_from_json_openai(chat_completion_object, expected_sections_count):
+    try:
+        # Extracting the JSON string from the provided structure
+        arguments_json = (
+            chat_completion_object.choices[0].message.tool_calls[0].function.arguments
+        )
+
+        # Now, parse this JSON string to get the actual lesson content
+        lesson_content = json.loads(arguments_json)
+
+        # Since `recommendations` is correctly a dictionary, we directly access its elements
+        if "sectionDescription" in lesson_content["recommendations"]:
+            section_description = lesson_content["recommendations"][
+                "sectionDescription"
+            ].get("richtext", "No section description provided.")
+            clean_section_description = clean_html_tags(section_description)
+            st.subheader("Section Description:")
+            st.write(clean_section_description)
+
+        if "activityRecommendations" in lesson_content["recommendations"]:
+            activity_recommendations = lesson_content["recommendations"][
+                "activityRecommendations"
+            ]
+            actual_activities_count = len(activity_recommendations)
+            if actual_activities_count != expected_sections_count:
+                st.warning(
+                    f"Expected {expected_sections_count} activities, but found {actual_activities_count}. Please verify the lesson plan."
+                )
+            else:
+                st.success(
+                    f"Number of activities matches the expected count: {expected_sections_count}."
+                )
+
+            for index, activity in enumerate(activity_recommendations, start=1):
+                activity_type = activity.get(
+                    "activityType", "No activity type specified"
+                )
+                activity_title = activity.get("activityTitle", "No title")
+                activity_notes = activity.get("activityNotes", {}).get(
+                    "richtext", "No notes provided."
+                )
+                clean_activity_notes = clean_html_tags(activity_notes)
+                activity_duration_seconds = activity.get("activityDuration", {}).get(
+                    "seconds", 0
+                )
+                activity_duration = f"{activity_duration_seconds // 60} minutes"
+
+                st.subheader(f"Activity {index}: {activity_title} ({activity_type})")
+                st.write(clean_activity_notes)
+                st.write(f"Duration: {activity_duration}")
+
+    except Exception as e:
+        st.error(f"Error processing the lesson content: {str(e)}")
+
+
+def generate_activity_openai(model):
+    if "openai_prompt" not in st.session_state:
+        st.session_state.openai_prompt = ""
+
+    # Template with placeholders
+    template = (
+        "As an experienced {Level} {Subject} teacher, design a segment of a lesson that helps students achieve the following learning outcomes:  {Section_Tags}  The title of the section is {Section_Title} and brief notes are {Section_Notes}."
+        "You should also consider: {Additional_Prompts}.  Students are expected to spend {Duration} on this segment. Suggest a mix of {Number_of_Activities} activities or quizzes for this segment. The activities and quizzes should help students understand the information in {Knowledge_Base}."
+        "A quiz is a series of questions that students need to attempt, while an activity comprises of text, questions and other tasks for a student to complete.  Your output should only be rich text, do not include hyperlinks, code snippets, mathematical formulas or xml."
+        "Your first output is a section description that describes the section to the student, the section description should be at most five sentences long.  Your next outputs should be a series of activities or quizzes. For each output,"
+        "identity whether it is an activity or quiz and then provide (i) a title, (ii) other useful notes about the activity or quiz and details about how a teacher might enact it, (iii) suggested time needed for a student to complete the activity or quiz."
+    )
+
+    prompt_options = {
+        "AC OpenAI Activity Production Prompt": st.session_state.ac_openai_activity_production_prompt,
+        "AC OpenAI Activity Development Prompt 1": st.session_state.ac_openai_activity_development_prompt_1,
+        "AC OpenAI Activity Development Prompt 2": st.session_state.ac_openai_activity_development_prompt_2,
+    }
+
+    # Let the user select a prompt by name
+    selected_prompt_name = st.selectbox(
+        "Select your prompt design:", tuple(prompt_options.keys())
+    )
+
+    # Set the select_prompt to the corresponding session state value based on the selected name
+    select_prompt = prompt_options[selected_prompt_name]
+
+    if st.checkbox("Load Sample Prompt"):
+        select_prompt = template
+    # Display the selected prompt
+    st.write(select_prompt)
+
+    json_tools = tool_function()
+    tools = load_json(json_tools)
+
+    # Formatting the template with actual session state values
+    formatted_prompt = select_prompt.format(
+        Level=st.session_state.get("level", "Level"),
+        Subject=st.session_state.get("subject", "Subject"),
+        Section_Tags=st.session_state.get("section_tags", "Section_Tags"),
+        Section_Title=st.session_state.get("section_title", "Section_Title"),
+        Section_Notes=st.session_state.get("section_notes", "Section_Notes"),
+        Additional_Prompts=st.session_state.get(
+            "activity_additional_prompts", "Additional_Prompts"
+        ),
+        Duration=st.session_state.get("section_duration", "Duration"),
+        Number_of_Activities=st.session_state.get(
+            "number_of_activities", "Number_of_Activities"
+        ),
+        Knowledge_Base=st.session_state.get("knowledge_base", "Knowledge_Base"),
+    )
+
+    st.session_state.openai_prompt = formatted_prompt
+    # Display the formatted prompt in Streamlit (for demonstration purposes)
+    edited_prompt = st.text_area(
+        "Generated Prompt", value=st.session_state.openai_prompt, height=300
+    )
+
+    if st.button("Generate Actitivities"):
+        # Update the session state with the formatted prompt
+        start_time = datetime.now()
+        st.session_state.openai_prompt = edited_prompt
+        client = OpenAI(
+            # defaults to os.environ.get("OPENAI_API_KEY")
+            api_key=return_openai_key()
+        )
+        # openai.api_key = return_openai_key()
+        # os.environ["OPENAI_API_KEY"] = return_openai_key()
+        # st.title("Api Call with JSON")
+        # MODEL = "gpt-3.5-turbo"
+        with st.status("Calling the OpenAI API..."):
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    # {"role": "system", "content": "You are a helpful assistant designed to output JSON."}, #system prompt
+                    {"role": "user", "content": edited_prompt},
+                ],
+                # response_format={ "type": "json_object" }, #response format
+                tools=tools,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "get_new_activity_recommendations"},
+                },
+                temperature=st.session_state.default_temp,  # settings option
+                presence_penalty=st.session_state.default_presence_penalty,  # settings option
+                frequency_penalty=st.session_state.default_frequency_penalty,  # settings option
+                top_p=st.session_state.default_top_p,  # settings option
+                max_tokens=st.session_state.default_max_tokens,  # settings option
+            )
+            st.markdown("**This is the extracted response:**")
+            st.write(response)
+            display_lesson_from_json_openai(
+                response, st.session_state.number_of_activities
+            )
+            end_time = datetime.now()  # Capture the end time after processing
+            duration = (
+                end_time - start_time
+            ).total_seconds()  # Calculate duration in seconds
+            st.write(f"Processing time: {duration} seconds")
+
+
+def get_and_display_duration():
+    # Default duration values
+    # default_hours, default_minutes, default_seconds = DURATION.split()
+
+    # Splitting the default duration values to extract integers
+    default_hours = 1  # Extracts '1' from '1 hours'
+    default_minutes = 30  # Extracts '30' from '30 minutes'
+    default_seconds = 0  # Extracts '30' from '30 seconds'
+
+    d1, d2, d3, d4 = st.columns([1, 1, 1, 5])
+    # User inputs for hours, minutes, seconds
+    with d1:
+        hours = st.number_input("Hours:", min_value=0, value=default_hours, format="%d")
+    with d2:
+        minutes = st.number_input(
+            "Minutes:", min_value=0, value=default_minutes, max_value=59, format="%d"
+        )
+    with d3:
+        seconds = st.number_input(
+            "Seconds:", min_value=0, value=default_seconds, max_value=59, format="%d"
+        )
+    with d4:
+        pass
+
+    # Formatting the duration string
+    duration_formatted = f"{hours} hours {minutes} minutes {seconds} seconds"
+
+    # Storing the formatted duration in session state
+    st.session_state.section_duration = duration_formatted
+
+    # Optionally, display the formatted string
+    st.write("Duration:", duration_formatted)
+
+
+def activities_single_call():
+    # Initialize default values if not already set
+    if "level" not in st.session_state:
+        st.session_state.level = CLASS_LEVELS_SINGAPORE[0]
+    if "subject" not in st.session_state:
+        st.session_state.subject = SUBJECTS_SINGAPORE[0]
+    # Set default values for SECTION details if not already set
+    if "section_tags" not in st.session_state:
+        st.session_state.section_tags = "Algebra, Geometry"
+    if "section_title" not in st.session_state:
+        st.session_state.section_title = "Introduction to Algebra"
+    if "section_notes" not in st.session_state:
+        st.session_state.section_notes = """Begin the lesson by introducing the concept of algebra and its importance in mathematics. 
+Explain the basic components of algebraic expressions, such as variables, constants, and operations. 
+Use simple examples to demonstrate how to write and manipulate algebraic expressions. 
+Encourage students to participate in the discussion by asking them to provide their own examples."""
+    if "section_duration" not in st.session_state:
+        st.session_state.section_duration = "1 hours 30 minutes 30 seconds"
+    if "activity_additional_prompts" not in st.session_state:
+        st.session_state.activity_additional_prompts = (
+            "Include hands-on activities and real-life examples"
+        )
+    if "number_of_activities" not in st.session_state:
+        st.session_state.number_of_activities = 3
+    if "knowledge_base" not in st.session_state:
+        st.session_state.knowledge_base = """
+Educational content is designed to foster critical thinking, problem-solving skills, and a deep understanding of subject matter. 
+Effective lesson plans engage students through interactive activities, discussions, and practical applications of theoretical concepts. 
+Assessment strategies should be varied and aligned with learning outcomes to accurately measure student understanding and progress. 
+Incorporating technology and real-world examples into the curriculum enhances learning experiences and prepares students for future challenges.
+"""
+
+    # UI for section generation
+    c1, c2, c3 = st.columns([1, 1, 3])
+    st.write("### Activities generation")
+    with c1:
+        level = st.selectbox(
+            "Select your level:", options=CLASS_LEVELS_SINGAPORE, index=0
+        )
+        st.session_state.level = level
+    with c2:
+        subject = st.selectbox(
+            "Select your subject:", options=SUBJECTS_SINGAPORE, index=0
+        )
+        st.session_state.subject = subject
+
+    section_tags = st.text_area(
+        "Enter Section Tags (Learning Objectives):",
+        value=st.session_state.section_tags,
+        height=150,
+        max_chars=10000,
+    )
+    st.session_state.section_tags = section_tags
+    section_title = st.text_area(
+        "Section Title:",
+        value=st.session_state.section_title,
+        height=150,
+        max_chars=10000,
+    )
+    st.session_state.section_title = section_title
+    section_notes = st.text_area(
+        "Section Notes:",
+        value=st.session_state.section_notes,
+        height=400,
+        max_chars=30000,
+    )
+    st.session_state.section_notes = section_notes
+    additional_prompts = st.text_area(
+        "Additional Prompts/Instructions:",
+        value=st.session_state.activity_additional_prompts,
+        height=400,
+        max_chars=30000,
+    )
+    st.session_state.activity_additional_prompts = additional_prompts
+    knowledge_base = st.text_area(
+        "Knowledge Base:",
+        value=st.session_state.knowledge_base,
+        height=400,
+        max_chars=30000,
+    )
+    st.session_state.knowledge_base = knowledge_base
+    get_and_display_duration()
+    number_of_activities = st.number_input(
+        "Number of Activities:",
+        min_value=1,
+        value=st.session_state.number_of_activities,
+    )
+    st.session_state.number_of_activities = number_of_activities
+
+    # select the model
+    model = st.selectbox("Select the model:", options=AC_MODEL_LIST, index=0)
+    # Button to confirm and potentially generate the section sections
+    if model != "-":
+        if model.startswith("gpt"):
+            generate_activity_openai(model)
+        elif model.startswith("claude"):
+            generate_activity_claude(model)
 
 
 def extract_lesson_content_from_json_claude(message_object, expected_sections_count):
-	lesson_details = {
-		'lesson_description': 'NA',
-		'sections': [],
-		'expected_sections_count': expected_sections_count,
-		'actual_sections_count': 0,
-		'mismatch_warning': False,
-		'error': None
-	}
+    lesson_details = {
+        "lesson_description": "NA",
+        "sections": [],
+        "expected_sections_count": expected_sections_count,
+        "actual_sections_count": 0,
+        "mismatch_warning": False,
+        "error": None,
+    }
 
-	try:
-		# Accessing the first content block's text to get the JSON string
-		if message_object.content and isinstance(message_object.content, list):
-			raw_json_string = message_object.content[0].text
-		else:
-			raise ValueError("Invalid message format. Cannot find the JSON content.")
-		
-		# Parse the JSON string
-		message_data = json.loads(raw_json_string)
-		
-		# Extract the recommendations from the parsed JSON
-		recommendations = message_data.get('recommendations', {})
-		
-		# Extract and clean the lesson description from HTML tags
-		lesson_description = recommendations.get('lessonDescription', {}).get('richtext', 'No lesson description provided.')
-		lesson_details['lesson_description'] = clean_html_tags(lesson_description)
-		
-		# Extract section recommendations and their count
-		section_recommendations = recommendations.get('sectionRecommendations', [])
-		actual_sections_count = len(section_recommendations)
-		lesson_details['actual_sections_count'] = actual_sections_count
-		
-		# Check for mismatch in the expected and actual section counts
-		if actual_sections_count != expected_sections_count:
-			lesson_details['mismatch_warning'] = True
-		
-		# Extract and store details for each section
-		for section in section_recommendations:
-			section_title = section.get('sectionTitle', 'No title')
-			section_notes = section.get('sectionNotes', {}).get('richtext', 'No notes provided.')
-			clean_section_notes = clean_html_tags(section_notes)
-			lesson_details['sections'].append({'title': section_title, 'notes': clean_section_notes})
+    try:
+        # Accessing the first content block's text to get the JSON string
+        if message_object.content and isinstance(message_object.content, list):
+            raw_json_string = message_object.content[0].text
+        else:
+            raise ValueError("Invalid message format. Cannot find the JSON content.")
 
-	except Exception as e:
-		lesson_details['error'] = str(e)
+        # Parse the JSON string
+        message_data = json.loads(raw_json_string)
 
-	return lesson_details
+        # Extract the recommendations from the parsed JSON
+        recommendations = message_data.get("recommendations", {})
+
+        # Extract and clean the lesson description from HTML tags
+        lesson_description = recommendations.get("lessonDescription", {}).get(
+            "richtext", "No lesson description provided."
+        )
+        lesson_details["lesson_description"] = clean_html_tags(lesson_description)
+
+        # Extract section recommendations and their count
+        section_recommendations = recommendations.get("sectionRecommendations", [])
+        actual_sections_count = len(section_recommendations)
+        lesson_details["actual_sections_count"] = actual_sections_count
+
+        # Check for mismatch in the expected and actual section counts
+        if actual_sections_count != expected_sections_count:
+            lesson_details["mismatch_warning"] = True
+
+        # Extract and store details for each section
+        for section in section_recommendations:
+            section_title = section.get("sectionTitle", "No title")
+            section_notes = section.get("sectionNotes", {}).get(
+                "richtext", "No notes provided."
+            )
+            clean_section_notes = clean_html_tags(section_notes)
+            lesson_details["sections"].append(
+                {"title": section_title, "notes": clean_section_notes}
+            )
+
+    except Exception as e:
+        lesson_details["error"] = str(e)
+
+    return lesson_details
 
 
 def batch_call_claude(model, formatted_prompt):
@@ -932,42 +1470,42 @@ def authoring_copilot():
             chatbot_settings()
         activities_single_call()
         pass
-    # elif options == "Activities Mass Call (JSON)":
-    #     # st.write("Activities Mass Call (JSON) is under development.")
-    #     if (
-    #         st.session_state.user["profile_id"] == SA
-    #         or st.session_state.user["profile_id"] == AD
-    #         or st.session_state.user["profile_id"] == BULK_TESTER
-    #     ):
-    #         with st.expander("Chatbot Settings"):
-    #             st.session_state.default_temp = 0.7
-    #             chatbot_settings()
-    #         activities_mass_call()
-    #     else:
-    #         st.warning("You are not authorized to access this feature.")
-    #     pass
-    # elif options == "Components Single (JSON)":
-    #     with st.expander("Chatbot Settings"):
-    #         st.session_state.default_temp = 0.7
-    #         chatbot_settings()
-    #     components_single_call()
-    #     pass
-    # elif options == "Components Mass Call (JSON)":
-    #     # st.write("Activities Mass Call (JSON) is under development.")
-    #     if (
-    #         st.session_state.user["profile_id"] == SA
-    #         or st.session_state.user["profile_id"] == AD
-    #         or st.session_state.user["profile_id"] == BULK_TESTER
-    #     ):
-    #         with st.expander("Chatbot Settings"):
-    #             st.session_state.default_temp = 0.7
-    #             chatbot_settings()
-    #         components_mass_call()
-    #     # activities_mass_call()
-    #     else:
-    #         st.warning("You are not authorized to access this feature.")
-    #     pass
-    # elif options == "Authoring Co-Pilot Framework":
-    #     # authoring_co_pilot()
-    #     st.write("Authoring Co-Pilot Framework is under development.")
-    #     pass
+    elif options == "Activities Mass Call (JSON)":
+        # st.write("Activities Mass Call (JSON) is under development.")
+        if (
+            st.session_state.user["profile_id"] == SA
+            or st.session_state.user["profile_id"] == AD
+            or st.session_state.user["profile_id"] == "Bulk Tester"
+        ):
+            with st.expander("Chatbot Settings"):
+                st.session_state.default_temp = 0.7
+                chatbot_settings()
+            activities_mass_call()
+        else:
+            st.warning("You are not authorized to access this feature.")
+        pass
+    elif options == "Components Single (JSON)":
+        with st.expander("Chatbot Settings"):
+            st.session_state.default_temp = 0.7
+            chatbot_settings()
+        components_single_call()
+        pass
+    elif options == "Components Mass Call (JSON)":
+        # st.write("Activities Mass Call (JSON) is under development.")
+        if (
+            st.session_state.user["profile_id"] == SA
+            or st.session_state.user["profile_id"] == AD
+            or st.session_state.user["profile_id"] == "Bulk Tester"
+        ):
+            with st.expander("Chatbot Settings"):
+                st.session_state.default_temp = 0.7
+                chatbot_settings()
+            components_mass_call()
+        # activities_mass_call()
+        else:
+            st.warning("You are not authorized to access this feature.")
+        pass
+    elif options == "Authoring Co-Pilot Framework":
+        # authoring_co_pilot()
+        st.write("Authoring Co-Pilot Framework is under development.")
+        pass

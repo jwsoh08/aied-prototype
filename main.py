@@ -10,8 +10,8 @@ from sections.main_content import load_app_main_content
 def main():
     print("running main()")
     try:
-        st.title(st.secrets["default_title"])
-        sac.divider(label='AIED Prototype', icon='house', align='center')
+        st.title("AIED Prototype")
+        sac.divider(label='COTF', icon='house', align='center')
 
         initialise_app()
         load_app_side_navigation()
