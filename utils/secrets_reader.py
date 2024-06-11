@@ -19,7 +19,7 @@ load_dotenv()
 class SecretsManager:
     @staticmethod
     def get_secret(key):
-        secret_name = "cotf/ai/metacog"
+        secret_name = "cotf/ai/aied"
         region_name = "ap-southeast-1"
 
         # Create a Secrets Manager client
