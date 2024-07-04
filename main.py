@@ -17,10 +17,11 @@ from basecode2.org_module import (
 	load_user_profile, 
 	set_function_access_for_user, 
 	sa_delete_profile_from_school,
+	download_auth_success_log,
 	manage_students_school,
 	manage_teachers_school,
 	)
-from basecode2.sqlite_db import create_sql_db, insert_condition_value, check_condition_value, get_condition_value
+from basecode2.sqlite_db import create_sql_db, get_condition_value
 from basecode2.chatbot import main_chatbot_functions
 from basecode2.pwd_module import password_settings
 from basecode2.class_dash import class_dash
@@ -30,7 +31,6 @@ from aied_functions.ac_copilot import ac_co_pilot
 import configparser
 import ast
 import ssl
-import time
 
 from utils.secrets_reader import SecretsRetriever
 			  
@@ -315,6 +315,8 @@ def main():
 					manage_app_access()
 					st.divider()
 					sa_delete_profile_from_school()
+					st.divider()
+					download_auth_success_log()
 				elif steps_options == "User Assignments":
 	
 					#select teachers or students

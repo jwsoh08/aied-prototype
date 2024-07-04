@@ -1028,6 +1028,28 @@ def sa_delete_profile_from_school():
         st.warning("You do not have the required permissions to perform this action")
 
 
+def download_auth_success_log():
+    st.subheader("Download Successful Login Log")
+    secret_retriever = SecretsRetriever()
+    MONGO_URI = secret_retriever.get_secret("mongo_uri")
+    DATABASE_NAME = secret_retriever.get_secret("mongo_database")
+
+    client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
+    db = client[DATABASE_NAME]
+    collection = db["auth_success_logs"]
+
+    # get all records
+    all_documents = collection.find()
+
+    # put all records in a pandas df
+    # Convert the cursor to a list of dictionaries
+    documents_list = list(all_documents)
+
+    # Convert the list of dictionaries to a pandas DataFrame
+    df = pd.DataFrame(documents_list)
+
+    st.data_editor(df)
+
 def delete_profile(sch_name, profile_var):
     # Search for the school document in s_collection
     sch_doc = st.session_state.s_collection.find_one({"sch_name": sch_name})
